@@ -4,66 +4,15 @@
 
 {
   "version": "2.0.0",
-  "inputs": [
-    {
-      "id": "templateOptions",
-      "description": "Template options.",
-      "type": "pickString",
-      "options": [
-        "",
-        "-Defaults",
-        "-Recopy",
-        "-Recopy -Defaults",
-        "-Defaults -NoVerify",
-        "-Recopy -NoVerify",
-        "-Recopy -Defaults -NoVerify"
-      ]
-    }
-  ],
   "tasks": [
     // * -------------------------------------------------------------------------- * //
     // * PROJECT SETUP * //
 
     {
-      "label": "setup: Copy template",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh" } },
-      "command": ".tools/scripts/Copy-Template.ps1 ${input:templateOptions}",
-      "icon": { "id": "file-symlink-directory" },
-      "problemMatcher": []
-    },
-    {
       "label": "setup: Setup project",
       "type": "shell",
       "options": { "shell": { "executable": "pwsh" } },
       "command": "setup.ps1",
-      "icon": { "id": "file-symlink-directory" },
-      "problemMatcher": []
-    },
-    {
-      "label": "setup: Update project",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh" } },
-      "command": "update.ps1",
-      "icon": { "id": "file-symlink-directory" },
-      // "runOptions": {
-      //   "runOn": "folderOpen"
-      // },
-      "problemMatcher": []
-    },
-    {
-      "label": "setup: Perform first-time setup",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh" } },
-      "command": ".tools/scripts/first_time_setup.ps1",
-      "icon": { "id": "file-symlink-directory" },
-      "problemMatcher": []
-    },
-    {
-      "label": "setup: Remove *.rej",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
-      "command": "Get-ChildItem -Recurse -Filter *.rej | Remove-Item",
       "icon": { "id": "file-symlink-directory" },
       "problemMatcher": []
     },
@@ -112,30 +61,6 @@
       "problemMatcher": []
     },
     {
-      "label": "task: Run pytest with coverage",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
-      "command": "pytest --cov --cov-report xml",
-      "icon": { "id": "type-hierarchy-sub" },
-      "problemMatcher": []
-    },
-    {
-      "label": "task: run core update",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
-      "command": "python .tools/scripts/core_update.py",
-      "icon": { "id": "graph" },
-      "problemMatcher": []
-    },
-    {
-      "label": "task: Invoke pyright",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh" } },
-      "command": ".tools/scripts/Invoke-Pyright.ps1",
-      "icon": { "id": "type-hierarchy-sub" },
-      "problemMatcher": []
-    },
-    {
       "label": "task: sphinx-autobuild docs (preview)",
       "type": "shell",
       "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
@@ -157,14 +82,6 @@
       "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
       "command": "snakeviz .prof",
       "icon": { "id": "graph-line" },
-      "problemMatcher": []
-    },
-    {
-      "label": "task: autoflake current file",
-      "type": "shell",
-      "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
-      "command": "autoflake -i --remove-all-unused-imports --ignore-init-module-imports ${file}",
-      "icon": { "id": "code" },
       "problemMatcher": []
     }
   ]

@@ -11,8 +11,6 @@ pyrightconfig.json
 *.prof
 # To avoid committing rejected changes upon bumping template
 *.rej
-# Don't commit first time setup script from copier-python-init
-/.tools/scripts/first_time_setup.ps1
 # Don't commit code workspace files, which might be symlinked here
 *.code-workspace
 # Avoid committing local docs builds for previewing

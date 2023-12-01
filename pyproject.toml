@@ -22,18 +22,9 @@ Docs = "https://blakeNaccarato.github.io/advent23"
 Home = "https://github.com/blakeNaccarato/advent23"
 Tracker = "https://github.com/blakeNaccarato/advent23/issues"
 
-[tool.fawltydeps]
-output_format = "human_detailed"
-code = ["src"]
-deps = ["pyproject.toml"]
-[tool.fawltydeps.custom_mapping]
-ipykernel = ["IPython"]
-
 [tool.pyright]
 # Paths
 include = ["src", "tests", "docs"]
-# Stubs
-stubPath = "submodules/typings"
 # Type inference helps with untyped upstream but can be unpredictable
 useLibraryCodeForTypes = true
 # Sets most checks to "error". See overrides below

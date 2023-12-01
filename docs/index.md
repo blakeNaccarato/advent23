@@ -5,5 +5,4 @@
 
 ```{toctree}
 :hidden:
-changelog
 ```
