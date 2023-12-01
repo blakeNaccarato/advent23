@@ -2,9 +2,6 @@
 Update the local virtual environment to the latest tracked dependencies.
 #>
 
-# Deinit submodules to avoid issues with git pull
-git submodule --quiet deinit --all --force
-
 # Activate environment
 $VENV_ACTIVATE_WINDOWS = '.venv/Scripts/activate'
 $VENV_ACTIVATE_UNIX = '.venv/bin/Activate.ps1'
@@ -14,11 +11,9 @@ else {
     throw [System.Management.Automation.ItemNotFoundException] 'Could not find a virtual environment.'
 }
 
-# Install dev requirements.
-python -m pip install --requirement '.tools/requirements/requirements_core.txt'
-python .tools/scripts/core_update.py
-python -m pip install --upgrade --requirement '.tools/requirements/requirements_dev.txt' --requirement '.tools/requirements/requirements.txt'
-python -m pip install --no-deps --requirement '.tools/requirements/requirements_nodeps.txt' --editable '.'
+
+$path = '.tools/requirements/requirements'
+python -m pip install --editable '.' --requirement "$path/requirements_dev.txt'
 
 # Install all types of pre-commit hooks
 $h = '--hook-type'

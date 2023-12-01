@@ -1,11 +1,13 @@
-# Requirements for both CI and dev environments.
+# Requirements for CI and devs
 
 # ? For advent of code tests
 boilercore==0.0.4
 pytest-aoc==1.23.3
-# ? For caching with dill, unlike the stock PyPI version
-cachier@git+https://github.com/blakeNaccarato/cachier@0892f53dc8fd9fb8a7f959305a1a9ec692876dc0
 
+# Core
+copier==9.1.0
+flit_core==3.9.0
+wheel==0.42.0
 # Type checking
 pyright
 # Pre-commit common requirements

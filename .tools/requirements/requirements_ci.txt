@@ -1,6 +1,2 @@
-# Requirements for dev environments.
-
-# Publishing
-flit==3.9.0
-
+# Requirements for CI
 -r requirements_both.txt
