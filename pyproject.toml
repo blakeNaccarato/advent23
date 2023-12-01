@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "advent23"
 version = "0.0.0"
-description = "Collaboration on Advent of Code 2023"
+description = "Collaboration on Advent of Code 2023."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
