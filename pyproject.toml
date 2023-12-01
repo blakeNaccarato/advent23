@@ -140,6 +140,7 @@ convention = "google"
 "tests/**" = [
     "ARG001", # Allow unused arguments in tests
     "S101",   # Allow assert in tests
+    "SIM300", # Allow constants (expectations) on the RHS in tests
 ]
 
 [tool.ruff.flake8-bugbear]
