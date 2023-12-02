@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from boilercore.notebooks.namespaces import NO_PARAMS, get_cached_minimal_nb_ns
+from boilercore.notebooks.namespaces import get_cached_minimal_nb_ns
 from boilercore.testing import unwrap_node
 
 from advent23_tests import Args, get_ans
@@ -15,7 +15,11 @@ def ns(request) -> SimpleNamespace:
     """Notebook namespace."""
     args: Args = request.param
     user, day, basic = args
-    params = NO_PARAMS if basic else {"INPUT": request.getfixturevalue(f"day{day}_raw")}
+    params = (
+        {"INPUT": Path(f"input_basic/day{day}.txt").read_text(encoding="utf-8")}
+        if basic
+        else {"INPUT": request.getfixturevalue(f"day{day}_raw")}
+    )
     return get_cached_minimal_nb_ns(
         nb=Path(f"src/advent23/{user}/day{day}.ipynb").read_text(encoding="utf-8"),
         receiver=unwrap_node(request.node),
