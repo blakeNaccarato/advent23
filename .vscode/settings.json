@@ -39,8 +39,8 @@
     "source.fixAll": "always"
   },
   "notebook.codeActionsOnSave": {
-    "source.organizeImports": "explicit",
-    "source.fixAll": "explicit"
+    "source.organizeImports": "never",
+    "source.fixAll": "never"
   },
   //? Auto imports
   "python.analysis.importFormat": "absolute",
