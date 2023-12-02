@@ -4,8 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from boilercore.notebooks.namespaces import get_cached_minimal_nb_ns
-from boilercore.testing import unwrap_node
+from boilercore.notebooks.namespaces import get_nb_ns
 
 from advent23_tests import Args, get_ans
 
@@ -20,9 +19,8 @@ def ns(request) -> SimpleNamespace:
         if basic
         else {"INPUT": request.getfixturevalue(f"day{day}_raw")}
     )
-    return get_cached_minimal_nb_ns(
+    return get_nb_ns(
         nb=Path(f"src/advent23/{user}/day{day}.ipynb").read_text(encoding="utf-8"),
-        receiver=unwrap_node(request.node),
         params=params,
     )
 
