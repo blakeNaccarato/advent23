@@ -2,6 +2,8 @@
 
 from typing import Any, NamedTuple
 
+from advent23_tests.answers import ANSWERS
+
 
 class Args(NamedTuple):
     """Indirect parameters for fixtures."""
@@ -18,12 +20,7 @@ class Exp(NamedTuple):
     full: Any
 
 
-ANSWERS = {
-    day: Exp(*ans)
-    for day, ans in {
-        "01": (142, None)  # TODO: solve
-    }.items()
-}
+ANSWERS = {day: Exp(*ans) for day, ans in ANSWERS.items()}
 
 
 def get_ans(day: str, basic: bool = False) -> Any:
