@@ -1,28 +1,29 @@
-"""Test helpers."""
+"""Tests for the Advent of Code 2023."""
 
-from typing import Any, NamedTuple
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Literal, TypeAlias
 
-from advent23_tests.answers import ANSWERS
+from boilercore.notebooks.namespaces import get_nb_ns
 
+Part: TypeAlias = Literal["a", "b"]
+"""Puzzle part."""
 
-class Args(NamedTuple):
-    """Indirect parameters for fixtures."""
-
-    user: str
-    day: str
-    basic: bool = False
-
-
-class Exp(NamedTuple):
-    """Expected answer."""
-
-    basic: Any
-    full: Any
+INPUT = Path("input")
+"""Input directory."""
+PACKAGE = Path("src/advent23")
+"""Package to test."""
 
 
-ANSWERS = {day: Exp(*ans) for day, ans in ANSWERS.items()}
+def get_nb(day: str, user: str, part: Part):
+    """Get notebook contents."""
+    return (
+        (PACKAGE / user / f"day{day}{part}")
+        .with_suffix(".ipynb")
+        .read_text(encoding="utf-8")
+    )
 
 
-def get_ans(day: str, basic: bool = False) -> Any:
-    """Get expected answer."""
-    return ANSWERS[day].basic if basic else ANSWERS[day].full
+def get_ns(day: str, user: str, part: Part, inp: str) -> SimpleNamespace:
+    """Puzzle namespace."""
+    return get_nb_ns(nb=get_nb(day, user, part), params={"INPUT": inp})
