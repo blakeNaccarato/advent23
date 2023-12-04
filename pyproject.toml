@@ -25,6 +25,19 @@ Docs = "https://blakeNaccarato.github.io/advent23"
 Home = "https://github.com/blakeNaccarato/advent23"
 Tracker = "https://github.com/blakeNaccarato/advent23/issues"
 
+[tool.pytest.ini_options]
+addopts = """\
+    --strict-config \
+    --strict-markers \
+    --color yes \
+    -p no:legacypaths \
+    -r aP \
+    """
+cache_dir = ".cache/.pytest_cache"
+markers = "slow"
+testpaths = "tests"
+xfail_strict = true
+
 [tool.pyright]
 # Paths
 include = ["src", "tests", "docs"]

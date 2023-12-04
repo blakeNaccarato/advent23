@@ -1,21 +1,19 @@
 """Test configuration."""
 
-from types import SimpleNamespace
-
 import pytest
 
-from advent23_tests import Case
+from advent23_tests import Case, Check
 
 
 @pytest.fixture()
-def ns(request) -> SimpleNamespace:
-    """Puzzle namespace."""
-    case: Case = request.param
-    return case.ns
-
-
-@pytest.fixture()
-def expected(request):
+def ans(request):
     """Puzzle answer."""
-    case: Case = request.param
+    case: Case | Check = request.param  # type: ignore
+    return case.answer
+
+
+@pytest.fixture()
+def exp(request):
+    """Expected answer."""
+    case: Case | Check = request.param  # type: ignore
     return case.expected
