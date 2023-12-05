@@ -56,17 +56,18 @@ class Case:
     @property
     def marks(s) -> tuple[pytest.MarkDecorator, ...]:
         """Test marks."""
-        user_inp = Case(**(asdict(s) | {"other_user": None})).inp
+        user_case = Case(**(asdict(s) | {"other_user": None}))
+        user_expected = user_case.expected
+        user_inp = user_case.inp
         chk_basic = Case(**(asdict(s) | {"other_user": "ex_a"})).ns.chk
-        user_expected = get_expectations(s.day, s.user)
         return (
             *(
                 pytest.mark.skipif(cond, reason=f"{s.id}: {reason}")
                 for reason, cond in {
                     "No notebook": not s.nb,
                     "No input": not s.inp or not user_inp,
-                    "Check not attempted": s.check not in chk_basic,
-                    "No expected answer": not s.expected,
+                    "Not attempted": s.check not in chk_basic,
+                    "Not answered": s.other_user is not None and not s.expected,
                 }.items()
             ),
             *(
@@ -74,8 +75,10 @@ class Case:
                     cond, reason=f"{s.id}: {reason}", raises=AssertionError
                 )
                 for reason, cond in {
-                    "No expected answer": s.other_user not in EXAMPLES
-                    and (DEFAULT_EXPECTED in (s.expected, user_expected))
+                    "Not answered": s.other_user is None and not s.expected,
+                    "Check not answered": s.other_user is not None
+                    and s.other_user not in EXAMPLES
+                    and not user_expected,
                 }.items()
             ),
         )
