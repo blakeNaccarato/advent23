@@ -18,6 +18,13 @@ class CheckDict(UserDict[str, Any]):
 CHECKS_A = CheckDict()
 CHECKS_B = CheckDict()
 
+HIDE = display()
+
+
+def disp_check(name, result, checks):
+    disp_name(name, result)
+    assert result == checks[name]  # noqa: S101
+
 
 def disp_names(*args: tuple[str, Any]):
     """Display objects with names above them."""
