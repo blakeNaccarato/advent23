@@ -1,15 +1,18 @@
 """Our checkpoints and answers to Advent of Code 2023."""
 
-ANSWERS = {
+CHECKS = {
     "01": {
-        "abdul": {"a": {"chk": {}, "ans": 54338}, "b": {"chk": {}, "ans": 53389}},
-        "blake": {"a": {"chk": {}, "ans": 55621}, "b": {"chk": {}, "ans": 53592}},
+        "ex_a": {"ans_a": 142, "ans_b": 281},
+        "ex_b": {"ans_a": 142, "ans_b": 281},
+        "abdul": {"ans_a": 54338, "ans_b": 53389},
+        "blake": {"ans_a": 55621, "ans_b": 53592},
+        "brad": {"ans_a": None, "ans_b": None},
     },
     "02": {
-        "abdul": {"a": {"chk": None, "ans": None}, "b": {"chk": None, "ans": None}},
-        "blake": {
-            "a": {"chk": {"num_games": 100}, "ans": None},
-            "b": {"chk": None, "ans": None},
-        },
+        "ex_a": {"ans_a": None, "ans_b": None},
+        "ex_b": {"ans_a": None, "ans_b": None},
+        "abdul": {"ans_a": None, "ans_b": None},
+        "blake": {"number_of_games": 100},
+        "brad": {"ans_a": None, "ans_b": None},
     },
 }

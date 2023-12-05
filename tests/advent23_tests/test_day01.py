@@ -9,7 +9,7 @@ def test_abdul(ans, exp):
     assert ans == exp
 
 
-@parametrize(USER, DAY, other_user="blake")
+@parametrize(USER, DAY, others=True)
 def test_abdul_others(ans, exp):
     assert ans == exp
 
@@ -22,6 +22,19 @@ def test_blake(ans, exp):
     assert ans == exp
 
 
-@parametrize(USER, DAY, other_user="abdul")
+@parametrize(USER, DAY, others=True)
 def test_blake_others(ans, exp):
+    assert ans == exp
+
+
+USER = "brad"
+
+
+@parametrize(USER, DAY)
+def test_brad(ans, exp):
+    assert ans == exp
+
+
+@parametrize(USER, DAY, others=True)
+def test_brad_others(ans, exp):
     assert ans == exp

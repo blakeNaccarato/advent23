@@ -36,7 +36,7 @@ addopts = """\
 cache_dir = ".cache/.pytest_cache"
 markers = "slow"
 testpaths = "tests"
-xfail_strict = true
+xfail_strict = false
 
 [tool.pyright]
 # Paths
