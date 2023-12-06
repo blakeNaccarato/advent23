@@ -173,3 +173,6 @@ def get_cases_compare(user: str, other_user: str, day: str) -> Iterator[Case]:
         yield Case(
             user, day, check, other_user, compare=True, compare_pos=str(i).zfill(2)
         )
+
+
+COMPARE_USER = "blake"
