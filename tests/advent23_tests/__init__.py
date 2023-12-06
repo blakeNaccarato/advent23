@@ -70,11 +70,6 @@ class Case:
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
     @property
-    def id(s) -> str:  # noqa: A003
-        """Get test ID."""
-        return "_".join([e for e in (s.other_user, s.compare_pos, s.check) if e])
-
-    @property
     def isolated_case(s):
         """The case for just this user."""
         return Case(**(asdict(s) | dict(other_user=None, compare=False)))
@@ -92,6 +87,11 @@ class Case:
     def basic_case(s):
         """The basic case."""
         return Case(**(asdict(s) | dict(other_user="ex_a", compare=False)))
+
+    @property
+    def id(s) -> str:  # noqa: A003
+        """Get test ID."""
+        return "_".join([e for e in (s.compare_pos, s.check) if e])
 
     @property
     def marks(s) -> tuple[pytest.MarkDecorator, ...]:
