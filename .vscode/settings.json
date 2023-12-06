@@ -97,6 +97,10 @@
     "*ipython-input*": "python",
     "pyrightconfig.json": "jsonc"
   },
+  //* File icon associations
+  "workbench.iconTheme": "vscode-icons",
+  "vsicons.presets.hideExplorerArrows": true,
+  "vsicons.dontShowNewVersionMessage": false,
 
   //! Built-in
   //* Markdown editor moves jarringly when this is "true"
