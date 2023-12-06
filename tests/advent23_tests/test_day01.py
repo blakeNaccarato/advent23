@@ -1,4 +1,4 @@
-from advent23_tests import parametrize
+from advent23_tests import parametrize, parametrize_compare
 
 DAY = "01"
 USER = "abdul"
@@ -37,4 +37,9 @@ def test_brad(ans, exp):
 
 @parametrize(USER, DAY, others=True)
 def test_brad_others(ans, exp):
+    assert ans == exp
+
+
+@parametrize_compare("brad", "blake", DAY)
+def test_brad_blake(ans, exp):
     assert ans == exp

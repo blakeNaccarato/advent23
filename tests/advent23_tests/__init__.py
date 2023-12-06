@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
+from itertools import chain
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -21,18 +22,6 @@ EXAMPLES = {"ex_a": "ans_a", "ex_b": "ans_b"}
 DEFAULT_EXPECTED = dict(zip(EXAMPLES.values(), [None] * len(EXAMPLES), strict=True))
 
 
-def parametrize(user: str, day: str, others: bool = False):
-    """Parametrize cases by user, day, other user, and whether to run checks."""
-    return pytest.mark.parametrize(
-        ("ans", "exp"),
-        [
-            pytest.param(*(case, case), id=case.id, marks=case.marks)
-            for case in get_cases(user, day, others)
-        ],
-        indirect=True,
-    )
-
-
 @dataclass
 class Case:
     """Puzzle test case."""
@@ -41,11 +30,8 @@ class Case:
     day: str
     check: str
     other_user: str | None = None
-
-    @property
-    def id(s) -> str:  # noqa: A003
-        """Get test ID."""
-        return "_".join([e for e in (s.other_user, s.check) if e])
+    compare: bool = False
+    compare_pos: str = ""
 
     @property
     def answer(s):
@@ -54,38 +40,10 @@ class Case:
         return chk.get(s.check) if chk else None
 
     @property
-    def marks(s) -> tuple[pytest.MarkDecorator, ...]:
-        """Test marks."""
-        user_case = Case(**(asdict(s) | {"other_user": None}))
-        user_expected = user_case.expected
-        user_inp = user_case.inp
-        chk_basic = Case(**(asdict(s) | {"other_user": "ex_a"})).ns.chk
-        return (
-            *(
-                pytest.mark.skipif(cond, reason=f"{s.id}: {reason}")
-                for reason, cond in {
-                    "No notebook": not s.nb,
-                    "No input": not s.inp or not user_inp,
-                    "Not attempted": s.check not in chk_basic,
-                    "Not answered": s.other_user is not None and not s.expected,
-                }.items()
-            ),
-            *(
-                pytest.mark.xfail(
-                    cond, reason=f"{s.id}: {reason}", raises=AssertionError
-                )
-                for reason, cond in {
-                    "Not answered": s.other_user is None and not s.expected,
-                    "Check not answered": s.other_user is not None
-                    and s.other_user not in EXAMPLES
-                    and not user_expected,
-                }.items()
-            ),
-        )
-
-    @property
     def expected(s):
         """Expected answer."""
+        if s.compare and (other_case := s.other_case):
+            return other_case.answer
         return get_expectations(s.day, s.user, s.other_user).get(s.check)
 
     @property
@@ -111,6 +69,78 @@ class Case:
         path = PACKAGE / s.user / f"day{s.day}.ipynb"
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
+    @property
+    def id(s) -> str:  # noqa: A003
+        """Get test ID."""
+        return "_".join([e for e in (s.other_user, s.compare_pos, s.check) if e])
+
+    @property
+    def isolated_case(s):
+        """The case for just this user."""
+        return Case(**(asdict(s) | dict(other_user=None, compare=False)))
+
+    @property
+    def other_case(s):
+        """The case for the other user."""
+        return (
+            Case(**(asdict(s) | dict(user=s.other_user, compare=False)))
+            if s.other_user
+            else None
+        )
+
+    @property
+    def basic_case(s):
+        """The basic case."""
+        return Case(**(asdict(s) | dict(other_user="ex_a", compare=False)))
+
+    @property
+    def marks(s) -> tuple[pytest.MarkDecorator, ...]:
+        """Test marks."""
+        return (
+            *(
+                pytest.mark.skipif(cond, reason=f"{s.id}: {reason}")
+                for reason, cond in {
+                    "No notebook": not s.nb,
+                    "No input": not s.inp or not s.isolated_case.inp,
+                    "Not attempted": s.check not in s.basic_case.ns.chk,
+                    "Not answered": s.other_user is not None and not s.expected,
+                }.items()
+            ),
+            *(
+                pytest.mark.xfail(
+                    cond, reason=f"{s.id}: {reason}", raises=AssertionError
+                )
+                for reason, cond in {
+                    "Not answered": s.other_user is None and not s.expected,
+                    "Check not answered": (
+                        s.other_user is not None
+                        and not s.compare
+                        and s.other_user not in EXAMPLES
+                        and not s.isolated_case.expected
+                    ),
+                }.items()
+            ),
+        )
+
+
+def get_expectations(
+    day: str, user: str, other_user: str | None = None
+) -> dict[str, Any]:
+    """Expected answers."""
+    return CHECKS[day][other_user or user]
+
+
+def parametrize(user: str, day: str, others: bool = False):
+    """Parametrize cases by user, day, other user, and whether to run checks."""
+    return pytest.mark.parametrize(
+        ("ans", "exp"),
+        [
+            pytest.param(*(case, case), id=case.id, marks=case.marks)
+            for case in get_cases(user, day, others)
+        ],
+        indirect=True,
+    )
+
 
 def get_cases(user: str, day: str, others: bool) -> Iterator[Case]:
     for other_user in sorted(set(CHECKS["01"]) - {user}) if others else (None,):
@@ -120,8 +150,28 @@ def get_cases(user: str, day: str, others: bool) -> Iterator[Case]:
             yield Case(user, day, check, other_user)
 
 
-def get_expectations(
-    day: str, user: str, other_user: str | None = None
-) -> dict[str, Any]:
-    """Expected answers."""
-    return CHECKS[day][other_user or user]
+def parametrize_compare(user: str, other_user: str, day: str):
+    """Parametrize cases by user, day, other user, and whether to run checks."""
+    return pytest.mark.parametrize(
+        ("ans", "exp"),
+        [
+            pytest.param(*(case, case), id=case.id, marks=case.marks)
+            for case in get_cases_compare(user, other_user, day)
+        ],
+        indirect=True,
+    )
+
+
+def get_cases_compare(user: str, other_user: str, day: str) -> Iterator[Case]:
+    for i, check in enumerate(
+        dict.fromkeys(
+            chain.from_iterable(
+                Case(u, day, "").ns.chk.keys()
+                for u in [user, other_user]
+                if other_user not in EXAMPLES
+            )
+        )
+    ):
+        yield Case(
+            user, day, check, other_user, compare=True, compare_pos=str(i).zfill(2)
+        )
