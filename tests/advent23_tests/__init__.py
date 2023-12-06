@@ -2,7 +2,6 @@
 
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
-from itertools import chain
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -12,6 +11,9 @@ import pytest
 from advent23 import get_ex_inp
 from advent23_tests.answers import CHECKS
 from advent23_tests.namespaces import get_cached_nb_ns
+
+COMPARE_USER = "blake"
+"""User to compare against."""
 
 INPUT = Path("input")
 """Input directory."""
@@ -161,18 +163,7 @@ def parametrize_compare(user: str, other_user: str, day: str):
 
 
 def get_cases_compare(user: str, other_user: str, day: str) -> Iterator[Case]:
-    for i, check in enumerate(
-        dict.fromkeys(
-            chain.from_iterable(
-                Case(u, day, "").ns.chk.keys()
-                for u in [user, other_user]
-                if other_user not in EXAMPLES
-            )
-        )
-    ):
-        yield Case(
-            user, day, check, other_user, compare=True, compare_pos=str(i).zfill(2)
-        )
-
-
-COMPARE_USER = "blake"
+    user_checks = Case(user, day, "").ns.chk.keys()
+    other_user_checks = Case(other_user, day, "").ns.chk.keys()
+    for i, check in enumerate(c for c in other_user_checks if c in user_checks):
+        yield Case(user, day, check, other_user, True, compare_pos=str(i).zfill(2))
