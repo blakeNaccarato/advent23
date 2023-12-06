@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from advent23 import get_example_input
+from advent23 import get_ex_inp
 from advent23_tests.answers import CHECKS
 from advent23_tests.namespaces import get_cached_nb_ns
 
@@ -57,9 +57,7 @@ class Case:
     def ns(s) -> SimpleNamespace:
         """Notebook namespace."""
         if s.other_user in EXAMPLES:
-            params = {
-                "inp": {part: get_example_input(s.day, part) for part in ("a", "b")}
-            }
+            params = {"inp": {part: get_ex_inp(s.day, part) for part in ("a", "b")}}
         else:
             params = {"inp": {part: s.inp for part in ("a", "b")}}
         return get_cached_nb_ns(nb=s.nb, params=params)
