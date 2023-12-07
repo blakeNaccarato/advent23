@@ -5,6 +5,8 @@ cachier@git+https://github.com/blakeNaccarato/cachier@0892f53dc8fd9fb8a7f959305a
 # ? Additional testing helpers
 boilercore==0.0.4
 
+# Formatting in VSCode and in pre-commit
+ruff==0.1.5
 # Testing
 pytest==7.4.3
 # Testing plugins
