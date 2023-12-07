@@ -139,6 +139,9 @@ class Case:
         )
 
 
+# TODO: Pass the assignments into the check visitor. Use a visit_Assign visitor or iter/walk children on potentially valid checks to decide whether to append them.
+
+ 
 def get_checks(nb: NotebookNode) -> list[str]:
     """Get non-constant checks in a notebook.
 
