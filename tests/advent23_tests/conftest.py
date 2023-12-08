@@ -10,13 +10,12 @@ from advent23_tests.cases import Case
 @pytest.fixture()
 def ans(request):
     """Puzzle answer."""
-    attempt, check, other = Case(*request.param)
-    return attempt.answer(check, other) or _SentinelObject("ans")
+    attempt, check = Case(*request.param)
+    return attempt.get_answer(check) or _SentinelObject("ans")
 
 
 @pytest.fixture()
 def exp(request):
     """Expected answer."""
-    foo: Case = request.param
-    attempt, check, other = foo
-    return attempt.expected(check, other) or _SentinelObject("exp")
+    attempt, check = Case(*request.param)
+    return attempt.get_expected_answer(check) or _SentinelObject("exp")

@@ -4,14 +4,16 @@ from __future__ import annotations
 
 from ast import Assign, Constant, Name, NodeVisitor, Subscript, parse, walk
 from dataclasses import dataclass
+from pathlib import Path
 from typing import NamedTuple, Self
 
-import pytest
 from nbformat import NO_CONVERT, reads
 
-from advent23_tests import ATTEMPTS, EXAMPLES, INPUT, PARTS
-from advent23_tests.answers import CHECKS
+from advent23 import EXAMPLES
 from advent23_tests.namespaces import get_cached_nb_ns
+
+ATTEMPTS = Path("src/advent23")
+"""Location of attempts."""
 
 
 class Case(NamedTuple):
@@ -19,7 +21,6 @@ class Case(NamedTuple):
 
     attempt: Attempt
     check: str
-    other: Attempt | None = None
 
 
 @dataclass
@@ -29,91 +30,75 @@ class Attempt:
     user: str
     """User attempting the puzzle."""
     day: str
-    """Day of the puzzle."""
+    """Zero-padded puzzle day."""
+    other: Self | None = None
+    """Another user's attempt to compare against."""
+
+    @property
+    def inp(self) -> dict[str, str]:
+        """Example input for this attempt."""
+        return EXAMPLES[self.day].inp
+
+    @property
+    def checks(self) -> list[str]:
+        """Attempted checkpoints retrieved from the notebook's `chk` dictionary.
+
+        Represents assignments to the `chk` dictionary in the user's notebook in which
+        the right-hand-side of the assignment references at least one other variable in
+        their notebook. This heuristic identifies checks which are likely to be
+        intentionally attempted, rather than those hard-coded to a correct answer as in
+        the initial template notebook that most users start from.
+        """
+        checks = get_attempted_checks(
+            "\n".join(
+                c.source.strip()
+                for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
+                if c.cell_type == "code"
+            )
+        )
+        if self.other:
+            return [c for c in checks if c in self.other.checks]
+        return [c for c in checks if c in EXAMPLES[self.day].chk]
 
     @property
     def nb(self) -> str:
-        """Notebook."""
+        """Jupyter notebook associated with this user's attempt."""
         path = ATTEMPTS / self.user / f"day{self.day}.ipynb"
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
-    @property
-    def checks(self):
-        """Attempted checks."""
-        src = "\n".join(
-            c.source.strip()
-            for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
-            if c.cell_type == "code"
+    def get_answer(self, check: str):
+        """The user's answer for a checkpoint in this attempt."""
+        ns = get_cached_nb_ns(nb=self.nb, params={"inp": self.inp})
+        return chk.get(check) if (chk := getattr(ns, "chk", None)) else None
+
+    def get_expected_answer(self, check: str):
+        """Get the expected answer for a checkpoint.
+
+        If `other` was specified when setting up this attempt, the expected answer is
+        the value of the check from running that user's attempt. Otherwise, get the
+        result of the check from the example input.
+        """
+        return (
+            self.other.get_answer(check)
+            if self.other
+            else EXAMPLES[self.day].chk.get(check)
         )
-        visitor = ChkVisitor()
-        visitor.visit(parse(src))
-        return visitor.checks
-
-    def answer(self, check: str, other: Self | None = None):
-        """Given answer."""
-        if other:
-            params = {
-                "inp": {
-                    part: Attempt(ex, self.day).inp()
-                    for part, ex in zip(PARTS, EXAMPLES, strict=True)
-                }
-            }
-        else:
-            inp = self.inp()
-            params = {"inp": {part: inp for part in PARTS}}
-        ns = get_cached_nb_ns(nb=self.nb, params=params)
-        chk = getattr(ns, "chk", None)
-        return chk.get(check) if chk else None
-
-    def expected(self, check: str, other: Self | None = None):
-        """Expected answer."""
-        if other and other.user in EXAMPLES:
-            return other.expected(check)
-        if other:
-            return other.answer(check, other)
-        if self.user in EXAMPLES:
-            return CHECKS[self.day].get(self.user)
-        return CHECKS[self.day][self.user].get(check)  # type: ignore
-
-    def inp(self) -> str:
-        """Test input."""
-        if (path := INPUT / self.user / f"{self.day}.txt").exists():
-            return path.read_text(encoding="utf-8")
-        return ""
 
     def get_id(self, check: str, pos: str = "") -> str:
         """Test ID."""
-        return "_".join([p for p in (self.user, self.day, pos, check) if p])
+        return "_".join([p for p in (self.user, f"day{self.day}", pos, check) if p])
 
-    def marks(
-        self, check: str, other: Self | None = None
-    ) -> tuple[pytest.MarkDecorator, ...]:
-        """Test marks."""
-        return (
-            *(
-                pytest.mark.skipif(bool(cond), reason=f"{self.get_id(check)}: {reason}")
-                for reason, cond in {
-                    "No notebook": not self.nb,
-                    "No input": not self.inp() or (other and not other.inp()),
-                }.items()
-            ),
-            *(
-                pytest.mark.xfail(
-                    bool(cond),
-                    reason=f"{self.get_id(check)}: {reason}",
-                    raises=AssertionError,
-                )
-                for reason, cond in {
-                    "Not answered": not other and not self.expected(check)
-                }.items()
-            ),
-        )
+
+def get_attempted_checks(src: str) -> list[str]:
+    visitor = ChkVisitor()
+    visitor.visit(parse(src))
+    return visitor.checks
 
 
 class ChkVisitor(NodeVisitor):
     def __init__(self):
-        """Visitor that finds non-constant checks."""
-        self.names: list[str] = []
+        """Visitor that finds attempted checks."""
+        self.names: set[str] = set()
         self.checks: list[str] = []
 
     def visit_Assign(self, node: Assign):  # noqa: N802
@@ -127,7 +112,7 @@ class ChkVisitor(NodeVisitor):
         """
         # Find variable names on the LHS of assignments
         if isinstance((target := node.targets[0]), Name):
-            self.names.append(target.id)
+            self.names.add(target.id)
         # Validate checks
         if (
             # Indexing appears on the LHS, e.g. `name[...]`
