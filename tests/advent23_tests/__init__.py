@@ -1,181 +1,191 @@
 """Tests for the Advent of Code 2023."""
 
-from ast import (
-    Assign,
-    Constant,
-    Name,
-    NodeVisitor,
-    Subscript,
-    expr,
-    get_source_segment,
-    parse,
-)
+from ast import Assign, Constant, Name, NodeVisitor, Subscript, parse, walk
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any
+from typing import NamedTuple, Self
 
 import pytest
+from _pytest.mark.structures import ParameterSet
 from nbformat import NO_CONVERT, NotebookNode, reads
 
-from advent23 import get_ex_inp
 from advent23_tests.answers import CHECKS
 from advent23_tests.namespaces import get_cached_nb_ns
 
-COMPARE_USER = "blake"
-"""User to compare against."""
-
-INPUT = Path("input")
-"""Input directory."""
+OTHER = "blake"
+"""Other user for comparisons."""
 PACKAGE = Path("src/advent23")
 """Package to test."""
+INPUT = Path("input")
+"""Input directory."""
+PARTS = ("a", "b")
+"""Parts of the puzzle."""
+EXAMPLES = {f"ex_{part}": f"ans_{part}" for part in PARTS}
+"""Example inputs."""
 
-EXAMPLES = {"ex_a": "ans_a", "ex_b": "ans_b"}
-DEFAULT_EXPECTED = dict(zip(EXAMPLES.values(), [None] * len(EXAMPLES), strict=True))
+
+def parametrize(user: str, day: str):
+    """Parametrize cases by user and day."""
+    attempt = Attempt(user, day)
+    return get_params(
+        pytest.param(
+            *([Case(attempt, check)] * 2),
+            id=attempt.id(check),
+            marks=attempt.marks(check),
+        )
+        for check in attempt.checks
+        if check in EXAMPLES.values()
+    )
+
+
+def parametrize_other(user: str, day: str, other_user: str):
+    """Parametrize cases by user, day, and other user."""
+    attempt = Attempt(user, day)
+    other = Attempt(other_user, day)
+    checks = {
+        c: str(i).zfill(2)
+        for i, c in enumerate([c for c in attempt.checks if c in other.checks])
+    }
+    return get_params(
+        pytest.param(
+            *([Case(attempt, check, other)] * 2),
+            id=attempt.id(check, i),
+            marks=attempt.marks(check, other),
+        )
+        for check, i in checks.items()
+    )
+
+
+def parametrize_ex(user: str, day: str):
+    """Parametrize cases by user and day for example inputs."""
+    attempt = Attempt(user, day)
+    return get_params(
+        pytest.param(
+            *([Case(attempt, check, ex)] * 2),
+            id=attempt.id(check),
+            marks=attempt.marks(check, ex),
+        )
+        for check, ex in {
+            check: Attempt(ex, day) for ex, check in EXAMPLES.items()
+        }.items()
+        if ex.expected(check)
+    )
+
+
+def get_params(params: Iterator[ParameterSet]):
+    return pytest.mark.parametrize(("ans", "exp"), list(params), indirect=True)
+
+
+def get_ex_inp(day: str):
+    return {
+        part: Attempt(ex, day).inp() for part, ex in zip(PARTS, EXAMPLES, strict=True)
+    }
 
 
 @dataclass
-class Case:
-    """Puzzle test case."""
+class Attempt:
+    """A puzzle attempt."""
 
     user: str
+    """The user attempting the puzzle."""
     day: str
-    check: str
-    other_user: str | None = None
-    compare: bool = False
-    compare_pos: str = ""
+    """The day of the puzzle."""
 
     @property
-    def answer(s):
-        """Given answer."""
-        chk = getattr(s.ns, "chk", None)
-        return chk.get(s.check) if chk else None
-
-    @property
-    def expected(s):
-        """Expected answer."""
-        if s.compare and (other_case := s.other_case):
-            return other_case.answer
-        return get_expectations(s.day, s.user, s.other_user).get(s.check)
-
-    @property
-    def inp(s) -> str:
-        """Test input."""
-        user = s.other_user or s.user
-        path = INPUT / user / f"{s.day}.txt"
+    def nb(self) -> str:
+        path = PACKAGE / self.user / f"day{self.day}.ipynb"
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
     @property
-    def ns(s) -> SimpleNamespace:
-        """Notebook namespace."""
-        if s.other_user in EXAMPLES:
-            params = {"inp": {part: get_ex_inp(s.day, part) for part in ("a", "b")}}
-        else:
-            params = {"inp": {part: s.inp for part in ("a", "b")}}
-        return get_cached_nb_ns(nb=s.nb, params=params)
-
-    @property
-    def nb(s) -> str:
-        path = PACKAGE / s.user / f"day{s.day}.ipynb"
-        return path.read_text(encoding="utf-8") if path.exists() else ""
-
-    @property
-    def isolated_case(s):
-        """The case for just this user."""
-        return Case(**(asdict(s) | dict(other_user=None, compare=False)))
-
-    @property
-    def other_case(s):
-        """The case for the other user."""
-        return (
-            Case(**(asdict(s) | dict(user=s.other_user, compare=False)))
-            if s.other_user
-            else None
+    def checks(self):
+        """Attempted checks."""
+        src = "\n".join(
+            c.source.strip()
+            for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
+            if c.cell_type == "code"
         )
+        visitor = ChkVisitor()
+        visitor.visit(parse(src))
+        return visitor.checks
 
-    @property
-    def checks(s):
-        """Non-constant checks."""
-        return get_checks(reads(s.nb, NO_CONVERT))  # type: ignore  # pyright: 1.1.377)
+    def answer(self, check: str, other: Self | None = None):
+        """Given answer."""
+        if other:
+            params = {"inp": get_ex_inp(self.day)}
+        else:
+            inp = self.inp()
+            params = {"inp": {part: inp for part in PARTS}}
+        ns = get_cached_nb_ns(nb=self.nb, params=params)
+        chk = getattr(ns, "chk", None)
+        return chk.get(check) if chk else None
 
-    @property
-    def basic_case(s):
-        """The basic case."""
-        return Case(**(asdict(s) | dict(other_user="ex_a", compare=False)))
+    def expected(self, check: str, other: Self | None = None):
+        """Expected answer."""
+        if other and other.user in EXAMPLES:
+            return other.expected(check)
+        if other:
+            return other.answer(check, other)
+        if not other and self.user in EXAMPLES:
+            return CHECKS[self.day].get(self.user)
+        return CHECKS[self.day][self.user].get(check)  # type: ignore
 
-    @property
-    def id(s) -> str:  # noqa: A003
-        """Get test ID."""
-        return "_".join([e for e in (s.compare_pos, s.check) if e])
+    def inp(self) -> str:
+        """Test input."""
+        if (path := INPUT / self.user / f"{self.day}.txt").exists():
+            return path.read_text(encoding="utf-8")
+        return ""
 
-    @property
-    def marks(s) -> tuple[pytest.MarkDecorator, ...]:
+    def id(self, check: str, pos: str = "") -> str:  # noqa: A003
+        """Test ID."""
+        return "_".join([e for e in (pos, check) if e])
+
+    def marks(
+        self, check: str, other: Self | None = None
+    ) -> tuple[pytest.MarkDecorator, ...]:
         """Test marks."""
         return (
             *(
-                pytest.mark.skipif(cond, reason=f"{s.id}: {reason}")
+                pytest.mark.skipif(bool(cond), reason=f"{self.id}: {reason}")
                 for reason, cond in {
-                    "No notebook": not s.nb,
-                    "No input": not s.inp or not s.isolated_case.inp,
-                    "Not attempted": s.check not in s.basic_case.checks,
-                    "Not answered": s.other_user is not None and not s.expected,
+                    "No notebook": not self.nb,
+                    "No input": not self.inp() or (other and not other.inp()),
                 }.items()
             ),
             *(
                 pytest.mark.xfail(
-                    cond, reason=f"{s.id}: {reason}", raises=AssertionError
+                    bool(cond),
+                    reason=f"{self.id(check)}: {reason}",
+                    raises=AssertionError,
                 )
                 for reason, cond in {
-                    "Not answered": s.other_user is None and not s.expected,
-                    "Check not answered": (
-                        s.other_user is not None
-                        and not s.compare
-                        and s.other_user not in EXAMPLES
-                        and not s.isolated_case.expected
-                    ),
+                    "Not answered": not other and not self.expected(check)
                 }.items()
             ),
         )
 
 
-# TODO: Pass the assignments into the check visitor. Use a visit_Assign visitor or iter/walk children on potentially valid checks to decide whether to append them.
+class Case(NamedTuple):
+    """Test case."""
 
- 
+    attempt: Attempt
+    check: str
+    other: Attempt | None = None
+
+
 def get_checks(nb: NotebookNode) -> list[str]:
-    """Get non-constant checks in a notebook.
-
-    Obtain the source code of all cells in a notebook. Potentially valid checks look
-    like `chk["literal_string_key"] = ...` where the right-hand-side can be anything.
-
-    Next, find all named assignments in the notebook like `assn = ...`. A check is valid
-    if the source code of its RHS contains one of the named assignments e.g. `assn`.
-
-    Checks which appear to reference one of the named assignments in the document are
-    not likely to be trivially constant checks, and therefore are candidate for
-    testing/comparison.
-    """
+    """Get valid checks."""
     src = "\n".join(c.source.strip() for c in nb.cells if c.cell_type == "code")
-    chk_visitor = ChkVisitor()
-    chk_visitor.visit(parse(src))
-    asn_visitor = NamedAssignmentVisitor()
-    asn_visitor.visit(parse(src))
-    named_assignments = set(asn_visitor.named_assignments)
-    checks: list[str] = []
-    for chk, chk_src in {
-        chk: get_source_segment(src, value) for chk, value in chk_visitor.checks.items()
-    }.items():
-        if not chk_src:
-            continue
-        if any(assn in chk_src for assn in named_assignments):
-            checks.append(chk)
-    return checks
+    visitor = ChkVisitor()
+    visitor.visit(parse(src))
+    return visitor.checks
 
 
 class ChkVisitor(NodeVisitor):
     def __init__(self):
         """Visitor that finds non-constant checks."""
-        self.checks: dict[str, expr] = {}
+        self.names: list[str] = []
+        self.checks: list[str] = []
 
     def visit_Assign(self, node: Assign):  # noqa: N802
         """Visit variable assignments, looking for checks.
@@ -186,75 +196,25 @@ class ChkVisitor(NodeVisitor):
         chk["literal_string_key"] = ...
         ```
         """
+        # Find variable names on the LHS of assignments
+        if isinstance((target := node.targets[0]), Name):
+            self.names.append(target.id)
+        # Validate checks
         if (
-            # e.g. chk[...], where `Subscript` means we're indexing on the LHS`
+            # Indexing appears on the LHS, e.g. `name[...]`
             isinstance((target := node.targets[0]), Subscript)
-            # e.g. a plain name like `chk`, and specifically make sure it's `chk`
+            # The variable on the LHS is the `chk` variable, e.g. `chk[...]`
             and isinstance((name := target.value), Name)
             and name.id == "chk"
-            # e.g. `"literal_string_key"` as opposed to a slice like `0:10:2`
-            and isinstance((slc := target.slice), Constant)
+            # The indexer is a name not a slice, e.g. `chk[named_index]`, not `0:10:2`
+            and isinstance((index := target.slice), Constant)
+            # The RHS references one of the variable names previously encountered
+            and any(
+                n.id
+                for n in walk(node.value)
+                if isinstance(n, Name) and n.id in self.names
+            )
         ):
-            self.checks[slc.value] = node.value
+            # The check is valid e.g. `valid_check` in `chk["valid_check"] = ...`
+            self.checks.append(index.value)
         self.generic_visit(node)
-
-
-class NamedAssignmentVisitor(NodeVisitor):
-    def __init__(self):
-        """Visitor that finds named assignments."""
-        self.named_assignments: list[str] = []
-
-    def visit_Assign(self, node: Assign):  # noqa: N802
-        """Visit variable assignments."""
-        if (
-            # e.g. `name = ...` where the LHS is a bare, named assignment
-            isinstance((target := node.targets[0]), Name)
-        ):
-            self.named_assignments.append(target.id)
-        self.generic_visit(node)
-
-
-def get_expectations(
-    day: str, user: str, other_user: str | None = None
-) -> dict[str, Any]:
-    """Expected answers."""
-    return CHECKS[day][other_user or user]
-
-
-def parametrize(user: str, day: str, others: bool = False):
-    """Parametrize cases by user, day, other user, and whether to run checks."""
-    return pytest.mark.parametrize(
-        ("ans", "exp"),
-        [
-            pytest.param(*(case, case), id=case.id, marks=case.marks)
-            for case in get_cases(user, day, others)
-        ],
-        indirect=True,
-    )
-
-
-def get_cases(user: str, day: str, others: bool) -> Iterator[Case]:
-    for other_user in sorted(set(CHECKS["01"]) - {user}) if others else (None,):
-        for check in get_expectations(day, user, other_user):
-            if any(other_user == ex and check != ans for ex, ans in EXAMPLES.items()):
-                continue
-            yield Case(user, day, check, other_user)
-
-
-def parametrize_compare(user: str, other_user: str, day: str):
-    """Parametrize cases by user, day, other user, and whether to run checks."""
-    return pytest.mark.parametrize(
-        ("ans", "exp"),
-        [
-            pytest.param(*(case, case), id=case.id, marks=case.marks)
-            for case in get_cases_compare(user, other_user, day)
-        ],
-        indirect=True,
-    )
-
-
-def get_cases_compare(user: str, other_user: str, day: str) -> Iterator[Case]:
-    user_checks = Case(user, day, "").checks
-    other_user_checks = Case(other_user, day, "").checks
-    for i, check in enumerate(c for c in other_user_checks if c in user_checks):
-        yield Case(user, day, check, other_user, True, compare_pos=str(i).zfill(2))

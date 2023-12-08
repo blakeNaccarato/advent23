@@ -37,7 +37,7 @@ addopts = """\
 cache_dir = ".cache/.pytest_cache"
 markers = "slow"
 testpaths = "tests"
-xfail_strict = false
+xfail_strict = true
 
 [tool.pyright]
 # Paths
@@ -83,7 +83,6 @@ reportUnusedCallResult = "none"
 [tool.ruff]
 fix = true
 force-exclude = true
-ignore-init-module-imports = true
 show-fixes = true
 show-source = true
 preview = false
@@ -156,7 +155,6 @@ convention = "google"
 ]
 "tests/**" = [
     "ARG001", # Allow unused arguments in tests
-    "N805",   # Allow "s" instead of "self" in test dataclasses
     "S101",   # Allow assert in tests
     "SIM300", # Allow constants (expectations) on the RHS in tests
 ]
