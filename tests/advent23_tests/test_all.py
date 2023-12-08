@@ -2,7 +2,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from advent23 import EXAMPLES, PARTS
+from advent23 import EXAMPLES
 from advent23_tests.cases import Attempt, Case
 
 USERS = ("blake", "abdul", "brad")
@@ -32,7 +32,7 @@ def get_attempts(other: str = "") -> Iterator[Attempt]:
 @parametrize(
     pytest.param(*([Case(attempt, answer)] * 2), id=attempt.get_id(answer))
     for attempt in get_attempts()
-    for answer in PARTS
+    for answer in attempt.checks
 )
 def test_example(ans, exp):
     assert ans == exp
