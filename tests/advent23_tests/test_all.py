@@ -1,4 +1,4 @@
-from advent23_tests import parametrize, walk_ex, walk_other, walk_self
+from advent23_tests.parametrizations import parametrize, walk_ex, walk_other, walk_self
 
 
 @parametrize(walk_self)

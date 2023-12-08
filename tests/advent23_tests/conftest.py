@@ -4,7 +4,7 @@ from unittest.mock import _SentinelObject  # type: ignore
 
 import pytest
 
-from advent23_tests import Case  # type: ignore
+from advent23_tests.cases import Case
 
 
 @pytest.fixture()
