@@ -13,8 +13,11 @@ from nbformat import NO_CONVERT, NotebookNode, reads
 from advent23_tests.answers import CHECKS
 from advent23_tests.namespaces import get_cached_nb_ns
 
+USERS = ("blake", "abdul", "brad")
+"""Users to test."""
 OTHER = "blake"
 """Other user for comparisons."""
+
 PACKAGE = Path("src/advent23")
 """Package to test."""
 INPUT = Path("input")
@@ -23,77 +26,35 @@ PARTS = ("a", "b")
 """Parts of the puzzle."""
 EXAMPLES = {f"ex_{part}": f"ans_{part}" for part in PARTS}
 """Example inputs."""
+DAYS = [str(i).zfill(2) for i in range(1, 26)]
+"""Days in the Advent.""" ""
 
 
-def parametrize(user: str, day: str):
-    """Parametrize cases by user and day."""
-    attempt = Attempt(user, day)
-    return get_params(
-        pytest.param(
-            *([Case(attempt, check)] * 2),
-            id=attempt.id(check),
-            marks=attempt.marks(check),
-        )
-        for check in attempt.checks
-        if check in EXAMPLES.values()
-    )
+def parametrize(walker):
+    return pytest.mark.parametrize(("ans", "exp"), start(walker), indirect=True)
 
 
-def parametrize_other(user: str, day: str, other_user: str):
-    """Parametrize cases by user, day, and other user."""
-    attempt = Attempt(user, day)
-    other = Attempt(other_user, day)
-    checks = {
-        c: str(i).zfill(2)
-        for i, c in enumerate([c for c in attempt.checks if c in other.checks])
-    }
-    return get_params(
-        pytest.param(
-            *([Case(attempt, check, other)] * 2),
-            id=attempt.id(check, i),
-            marks=attempt.marks(check, other),
-        )
-        for check, i in checks.items()
-    )
-
-
-def parametrize_ex(user: str, day: str):
-    """Parametrize cases by user and day for example inputs."""
-    attempt = Attempt(user, day)
-    return get_params(
-        pytest.param(
-            *([Case(attempt, check, ex)] * 2),
-            id=attempt.id(check),
-            marks=attempt.marks(check, ex),
-        )
-        for check, ex in {
-            check: Attempt(ex, day) for ex, check in EXAMPLES.items()
-        }.items()
-        if ex.expected(check)
-    )
-
-
-def get_params(params: Iterator[ParameterSet]):
-    return pytest.mark.parametrize(("ans", "exp"), list(params), indirect=True)
-
-
-def get_ex_inp(day: str):
-    return {
-        part: Attempt(ex, day).inp() for part, ex in zip(PARTS, EXAMPLES, strict=True)
-    }
+def start(walker) -> Iterator[ParameterSet]:
+    for day in DAYS:
+        for user in USERS:
+            attempt = Attempt(user, day)
+            if not attempt.nb:
+                continue
+            yield from walker(attempt)
 
 
 @dataclass
 class Attempt:
-    """A puzzle attempt."""
+    """Puzzle attempt."""
 
     user: str
-    """The user attempting the puzzle."""
+    """User attempting the puzzle."""
     day: str
-    """The day of the puzzle."""
+    """Day of the puzzle."""
 
     @property
     def nb(self) -> str:
+        """Notebook."""
         path = PACKAGE / self.user / f"day{self.day}.ipynb"
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
@@ -126,7 +87,7 @@ class Attempt:
             return other.expected(check)
         if other:
             return other.answer(check, other)
-        if not other and self.user in EXAMPLES:
+        if self.user in EXAMPLES:
             return CHECKS[self.day].get(self.user)
         return CHECKS[self.day][self.user].get(check)  # type: ignore
 
@@ -136,9 +97,9 @@ class Attempt:
             return path.read_text(encoding="utf-8")
         return ""
 
-    def id(self, check: str, pos: str = "") -> str:  # noqa: A003
+    def get_id(self, check: str, pos: str = "") -> str:
         """Test ID."""
-        return "_".join([e for e in (pos, check) if e])
+        return "_".join([p for p in (self.user, self.day, pos, check) if p])
 
     def marks(
         self, check: str, other: Self | None = None
@@ -146,7 +107,7 @@ class Attempt:
         """Test marks."""
         return (
             *(
-                pytest.mark.skipif(bool(cond), reason=f"{self.id}: {reason}")
+                pytest.mark.skipif(bool(cond), reason=f"{self.get_id(check)}: {reason}")
                 for reason, cond in {
                     "No notebook": not self.nb,
                     "No input": not self.inp() or (other and not other.inp()),
@@ -155,7 +116,7 @@ class Attempt:
             *(
                 pytest.mark.xfail(
                     bool(cond),
-                    reason=f"{self.id(check)}: {reason}",
+                    reason=f"{self.get_id(check)}: {reason}",
                     raises=AssertionError,
                 )
                 for reason, cond in {
@@ -165,12 +126,64 @@ class Attempt:
         )
 
 
+def walk_self(attempt: Attempt) -> Iterator[ParameterSet]:
+    yield from (
+        pytest.param(
+            *([Case(attempt, check)] * 2),
+            id=attempt.get_id(check),
+            marks=attempt.marks(check),
+        )
+        for check in attempt.checks
+        if check in EXAMPLES.values()
+    )
+
+
+def walk_other(attempt: Attempt) -> Iterator[ParameterSet]:
+    """Parametrize cases by user and day."""
+    if attempt.user == OTHER:
+        return
+    other = Attempt(OTHER, attempt.day)
+    checks = {
+        c: str(i).zfill(2)
+        for i, c in enumerate(c for c in attempt.checks if c in other.checks)
+    }
+    yield from (
+        pytest.param(
+            *([Case(attempt, check, other)] * 2),
+            id=attempt.get_id(check, i),
+            marks=attempt.marks(check, other),
+        )
+        for check, i in checks.items()
+    )
+
+
+def walk_ex(attempt: Attempt) -> Iterator[ParameterSet]:
+    yield from (
+        pytest.param(
+            *([Case(attempt, check, ex)] * 2),
+            id=attempt.get_id(check),
+            marks=attempt.marks(check, ex),
+        )
+        for check, ex in {
+            check: Attempt(ex, attempt.day) for ex, check in EXAMPLES.items()
+        }.items()
+        if ex.expected(check)
+    )
+
+
 class Case(NamedTuple):
     """Test case."""
 
     attempt: Attempt
     check: str
     other: Attempt | None = None
+
+
+def get_ex_inp(day: str):
+    """Get example input."""
+    return {
+        part: Attempt(ex, day).inp() for part, ex in zip(PARTS, EXAMPLES, strict=True)
+    }
 
 
 def get_checks(nb: NotebookNode) -> list[str]:
