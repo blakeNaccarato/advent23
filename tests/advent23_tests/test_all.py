@@ -1,4 +1,4 @@
-"""Test configuration."""
+"""Tests for user attempts of Advent of Code 2023 challenges."""
 
 import pytest
 
@@ -14,7 +14,7 @@ from advent23_tests.attempts import Attempt, get_attempts
     ),
 )
 def test_example(att: Attempt, check: str):
-    """Test that an attempt passes expectations in `input/examples.toml`."""
+    """Test attempts against examples in `input/examples.toml`."""
     assert att.get_answer(check) == att.get_expected_answer(check)
 
 
@@ -28,4 +28,5 @@ def test_example(att: Attempt, check: str):
     ),
 )
 def test_compare_to_blake(att: Attempt, check: str):
+    """Test common checkpoints between attempts and Blake's attempts."""
     assert att.get_answer(check) == att.get_expected_answer(check)
