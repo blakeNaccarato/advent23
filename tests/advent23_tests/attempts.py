@@ -22,10 +22,9 @@ USERS = ("blake", "abdul", "brad")
 def get_attempts(other_user: str = "") -> Iterator[Attempt]:
     for day in EXAMPLES:
         other = Attempt(other_user, day) if other_user else None
-        attempts = (Attempt(user, day, other) for user in USERS)
         yield from (
             att
-            for att in attempts
+            for att in (Attempt(user, day, other) for user in USERS)
             if att.nb and att.inp
             if other_user and att.user != other_user or not other_user
         )
