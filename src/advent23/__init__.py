@@ -19,6 +19,8 @@ PARTS = ("a", "b")
 """Parts of the puzzle."""
 INPUT = Path("input")
 """Location of inputs for attempts."""
+HIDE = display()
+"""Hide unwanted output for a notebook code cell."""
 
 
 @dataclass

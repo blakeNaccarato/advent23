@@ -14,6 +14,7 @@ from advent23_tests.attempts import Attempt, get_attempts
     ),
 )
 def test_example(att: Attempt, check: str):
+    """Test that an attempt passes expectations in `input/examples.toml`."""
     assert att.get_answer(check) == att.get_expected_answer(check)
 
 
