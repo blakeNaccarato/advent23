@@ -32,7 +32,7 @@ addopts = """\
     --strict-markers \
     --color yes \
     -p no:legacypaths \
-    -r aP \
+    -r a \
     """
 cache_dir = ".cache/.pytest_cache"
 markers = "slow"

@@ -1,50 +1,30 @@
-from collections.abc import Iterator
+"""Test configuration."""
 
 import pytest
 
-from advent23 import EXAMPLES
-from advent23_tests.cases import Attempt, Case
-
-USERS = ("blake", "abdul", "brad")
-"""Users to test."""
-OTHER = "blake"
-"""User to compare against."""
+from advent23_tests.attempts import Attempt, get_attempts
 
 
-def parametrize(params):
-    """Test parametrization specific to this module."""
-    return pytest.mark.parametrize(("ans", "exp"), params, indirect=True)
-
-
-def get_attempts(other: str = "") -> Iterator[Attempt]:
-    for day in EXAMPLES:
-        attempts = (
-            Attempt(user, day, Attempt(other, day) if other else None) for user in USERS
-        )
-        yield from (
-            att
-            for att in attempts
-            if att.nb and att.inp
-            if other and att.user != other or not other
-        )
-
-
-@parametrize(
-    pytest.param(*([Case(attempt, answer)] * 2), id=attempt.get_id(answer))
-    for attempt in get_attempts()
-    for answer in attempt.checks
+@pytest.mark.parametrize(
+    ("att", "check"),
+    (
+        pytest.param(attempt, check, id=attempt.get_id(check))
+        for attempt in get_attempts()
+        for check in attempt.checks
+    ),
 )
-def test_example(ans, exp):
-    assert ans == exp
+def test_example(att: Attempt, check: str):
+    assert att.get_answer(check) == att.get_expected_answer(check)
 
 
-@parametrize(
-    pytest.param(
-        *([Case(attempt, check)] * 2), id=attempt.get_id(check, str(i).zfill(2))
-    )
-    for attempt in get_attempts(OTHER)
-    for i, check in enumerate(attempt.checks)
-    if attempt.user != OTHER
+@pytest.mark.parametrize(
+    ("att", "check"),
+    (
+        pytest.param(attempt, check, id=attempt.get_id(check, str(i).zfill(2)))
+        for attempt in get_attempts("blake")
+        for i, check in enumerate(attempt.checks)
+        if attempt.user != "blake"
+    ),
 )
-def test_compare(ans, exp):
-    assert ans == exp
+def test_compare_to_blake(att: Attempt, check: str):
+    assert att.get_answer(check) == att.get_expected_answer(check)

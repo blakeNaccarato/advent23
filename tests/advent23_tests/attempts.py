@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from ast import Assign, Constant, Name, NodeVisitor, Subscript, parse, walk
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple, Self
+from typing import Self
 
 from nbformat import NO_CONVERT, reads
 
@@ -14,13 +15,20 @@ from advent23_tests.namespaces import get_cached_nb_ns
 
 ATTEMPTS = Path("src/advent23")
 """Location of attempts."""
+USERS = ("blake", "abdul", "brad")
+"""Users to test."""
 
 
-class Case(NamedTuple):
-    """Test case."""
-
-    attempt: Attempt
-    check: str
+def get_attempts(other_user: str = "") -> Iterator[Attempt]:
+    for day in EXAMPLES:
+        other = Attempt(other_user, day) if other_user else None
+        attempts = (Attempt(user, day, other) for user in USERS)
+        yield from (
+            att
+            for att in attempts
+            if att.nb and att.inp
+            if other_user and att.user != other_user or not other_user
+        )
 
 
 @dataclass
