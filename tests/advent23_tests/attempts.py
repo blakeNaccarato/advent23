@@ -127,7 +127,16 @@ class Attempt:
             pos: Optionally, position of this checkpoint in the test group.
         """
         return "_".join(
-            [p for p in (self.user, f"day{self.day}", str(pos).zfill(2), check) if p]
+            [
+                p
+                for p in (
+                    self.user,
+                    f"day{self.day}",
+                    f"chk{str(pos).zfill(2)}" if pos is not None else "",
+                    check,
+                )
+                if p
+            ]
         )
 
 

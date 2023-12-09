@@ -4,10 +4,29 @@
 
 {
   "version": "2.0.0",
+
+  "inputs": [
+    {
+      "id": "user",
+      "type": "pickString",
+      "description": "Only run the subset of tests pertaining to this user.",
+      "default": "All",
+      "options": ["All", "Abdul", "Blake", "Brad"]
+    }
+  ],
+
   "tasks": [
     // * -------------------------------------------------------------------------- * //
     // * PROJECT SETUP * //
 
+    {
+      "label": "proj: Personalize tests",
+      "type": "shell",
+      "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
+      "command": "python scripts/personalize_tests.py ${input:user}",
+      "icon": { "id": "file-symlink-directory" },
+      "problemMatcher": []
+    },
     {
       "label": "setup: Setup project",
       "type": "shell",
