@@ -7,25 +7,25 @@ from typing import Self
 
 
 class Stringer(MutableMapping[str, Self | str]):
-    def __init__(self, *, **subs: Self | str):
+    def __init__(self, **subs: Self | str):
         self.subs = subs
         super().__init__()
 
     def sub(self) -> str:
-        root: str = self.subs["root"]
+        root: str = self.subs["root"]  # type: ignore
         while root != (root := self.sub_child(root)):
             pass
         return root.replace("$$", "$")
 
     def sub_child(self, child: str | Self) -> str:
-        return Template(child.replace("$$", "$$$$")).substitute(
+        return Template(child.replace("$$", "$$$$")).substitute(  # type: ignore
             {
                 name: child if isinstance(child, str) else self.sub_child(child)
                 for name, child in self.items()
             }
         )
 
-    def __getitem__(self, key: str) -> Self | str:
+    def __getitem__(self, key: str) -> Self | str:  # type: ignore
         return self.subs[key]
 
     def __setitem__(self, key: str, sub: Self | str):
