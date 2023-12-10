@@ -7,41 +7,41 @@ from typing import Self
 
 
 class Stringer(MutableMapping[str, Self | str]):
-    def __init__(self, *, root: str, **patterns: Self | str) -> None:
+    def __init__(self, *, root: str, **subs: Self | str) -> None:
         self.root = root
-        self.patterns = patterns
+        self.subs = subs
         super().__init__()
 
     def sub(self) -> str:
-        return self.subber(self.get_result(self.root)).replace("$$", "$")
+        return self.sub_root(self.root).replace("$$", "$")
 
-    def subber(self, foo: str) -> str:
-        while foo != (foo := self.get_result(self.root)):
+    def sub_root(self, root: str) -> str:
+        while root != (root := self.sub_children(root)):
             pass
-        return foo
+        return root
 
-    def get_result(self, pattern: str | Self) -> str:
-        return Template(pattern.replace("$$", "$$$$")).substitute(  # type: ignore
+    def sub_children(self, child: str | Self) -> str:
+        return Template(child.replace("$$", "$$$$")).substitute(
             {
-                name: pat if isinstance(pat, str) else self.get_result(pat)
-                for name, pat in self.patterns.items()
+                name: child if isinstance(child, str) else self.get_result(child)
+                for name, child in self.items()
             }
         )
 
-    def __getitem__(self, key: str) -> Self | str:  # type: ignore
-        return self.patterns[key]
+    def __getitem__(self, key: str) -> Self | str:
+        return self.subs[key]
 
-    def __setitem__(self, key: str, pattern: Self | str):
-        self.patterns[key] = pattern
+    def __setitem__(self, key: str, sub: Self | str):
+        self.subs[key] = sub
 
     def __delitem__(self, key: str):
-        del self.patterns[key]
+        del self.subs[key]
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self.patterns)
+        return iter(self.subs)
 
     def __len__(self) -> int:
-        return len(self.patterns)
+        return len(self.subs)
 
 
 def rem(pattern: str) -> Pattern[str]:
