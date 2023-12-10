@@ -5,8 +5,6 @@ from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
 from typing import Self
 
-from more_itertools import last
-
 
 class Stringer(MutableMapping[str, Self | str]):
     def __init__(self, *, root: str, **patterns: Self | str) -> None:
@@ -14,22 +12,21 @@ class Stringer(MutableMapping[str, Self | str]):
         self.patterns = patterns
         super().__init__()
 
-    def sub(self, **other_patterns: Self | str) -> str:
-        return (last(self.subber(**other_patterns), default=self.root)).replace(
-            "$$", "$"
-        )
+    def sub(self) -> str:
+        return self.subber(self.get_result(self.root)).replace("$$", "$")
 
-    def subber(self, **other_patterns: Self | str) -> Iterator[str]:
-        result = self.root
-        while result != (
-            result := Template(result.replace("$$", "$$$$")).substitute(
-                {
-                    name: pattern if isinstance(pattern, str) else pattern.subber()
-                    for name, pattern in {**self.patterns, **other_patterns}.items()
-                }
-            )
-        ):
-            yield result
+    def subber(self, foo: str) -> str:
+        while foo != (foo := self.get_result(self.root)):
+            pass
+        return foo
+
+    def get_result(self, pattern: str | Self) -> str:
+        return Template(pattern.replace("$$", "$$$$")).substitute(  # type: ignore
+            {
+                name: pat if isinstance(pat, str) else self.get_result(pat)
+                for name, pat in self.patterns.items()
+            }
+        )
 
     def __getitem__(self, key: str) -> Self | str:  # type: ignore
         return self.patterns[key]
