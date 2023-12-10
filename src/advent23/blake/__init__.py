@@ -16,14 +16,14 @@ class Stringer(MutableMapping[str, Self | str]):
         return self.sub_root(self.root).replace("$$", "$")
 
     def sub_root(self, root: str) -> str:
-        while root != (root := self.sub_children(root)):
+        while root != (root := self.sub_child(root)):
             pass
         return root
 
-    def sub_children(self, child: str | Self) -> str:
+    def sub_child(self, child: str | Self) -> str:
         return Template(child.replace("$$", "$$$$")).substitute(
             {
-                name: child if isinstance(child, str) else self.get_result(child)
+                name: child if isinstance(child, str) else self.sub_child(child)
                 for name, child in self.items()
             }
         )
