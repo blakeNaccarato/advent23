@@ -12,7 +12,7 @@ class Stringer(MutableMapping[str, Self | str]):
         super().__init__()
 
     def sub(self) -> str:
-        root: str = self subs["root"]
+        root: str = self.subs["root"]
         while root != (root := self.sub_child(root)):
             pass
         return root.replace("$$", "$")
