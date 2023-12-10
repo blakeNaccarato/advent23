@@ -7,18 +7,15 @@ from typing import Self
 
 
 class Stringer(MutableMapping[str, Self | str]):
-    def __init__(self, *, root: str, **subs: Self | str) -> None:
-        self.root = root
+    def __init__(self, *, **subs: Self | str):
         self.subs = subs
         super().__init__()
 
     def sub(self) -> str:
-        return self.sub_root(self.root).replace("$$", "$")
-
-    def sub_root(self, root: str) -> str:
+        root: str = self subs["root"]
         while root != (root := self.sub_child(root)):
             pass
-        return root
+        return root.replace("$$", "$")
 
     def sub_child(self, child: str | Self) -> str:
         return Template(child.replace("$$", "$$$$")).substitute(
