@@ -6,13 +6,24 @@ from collections.abc import Iterator, MutableMapping
 from copy import deepcopy
 from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
-from typing import Self
+from typing import Any, Self
 
 NO_MAPPING = {}
 
 
 def remvs(root: str = "", **kwds: Stringer | str) -> Pattern[str]:
-    return remv(Stringer(**({"root": root} if root else {}), **kwds).sub())
+    return remv(stringup(**({"root": root} if root else {}), **kwds).sub())
+
+
+def stringup(
+    mapping: MutableMapping[str, Any] = NO_MAPPING, /, **kwds: Any
+) -> Stringer:
+    return Stringer(
+        {
+            name: stringup(sub) if isinstance(sub, MutableMapping) else sub
+            for name, sub in (mapping or kwds).items()
+        }
+    )
 
 
 def remv(pattern: str) -> Pattern[str]:
@@ -71,3 +82,6 @@ class Stringer(MutableMapping[str, Self | str]):
 
     def __ior__(self, other: Self) -> Self:
         return self.__or__(other)
+
+
+...
