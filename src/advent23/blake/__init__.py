@@ -54,7 +54,7 @@ class Stringer(MutableMapping[str, Self | str]):
         return getattr(self._ns, name, None) or super().__getattribute__(name)
 
     def __setattr__(self, name: str, value):
-        if name == "ns" or name.startswith("_"):
+        if name.startswith("_"):
             return super().__setattr__(name, value)
         setattr(self._ns, name, value)
 
