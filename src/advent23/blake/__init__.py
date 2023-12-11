@@ -82,6 +82,3 @@ class Stringer(MutableMapping[str, Self | str]):
 
     def __ior__(self, other: Self) -> Self:
         return self.__or__(other)
-
-
-...
