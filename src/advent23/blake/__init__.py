@@ -1,14 +1,35 @@
 """Blake's solutions."""
 
+from __future__ import annotations
+
 from collections.abc import Iterator, MutableMapping
+from copy import deepcopy
 from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
 from typing import Self
 
+NO_MAPPING = {}
+
+
+def remvs(root: str = "", **kwds: Stringer | str) -> Pattern[str]:
+    return remv(Stringer(**({"root": root} if root else {}), **kwds).sub())
+
+
+def remv(pattern: str) -> Pattern[str]:
+    """Multiline, verbose, compiled regex pattern."""
+    return compile(flags=VERBOSE | MULTILINE, pattern=pattern)
+
 
 class Stringer(MutableMapping[str, Self | str]):
-    def __init__(self, **subs: Self | str):
-        self.subs = subs
+    def __init__(
+        self,
+        mapping: MutableMapping[str, Self | str] = NO_MAPPING,
+        /,
+        **kwds: Self | str,
+    ):
+        self.subs = mapping or kwds
+        if "root" not in self.subs:
+            raise ValueError("Stringer missing `root` key.")
         super().__init__()
 
     def sub(self) -> str:
@@ -25,6 +46,9 @@ class Stringer(MutableMapping[str, Self | str]):
             }
         )
 
+    def __repr__(self) -> str:
+        return f"{super().__repr__()}\nSubs: {self.subs!r}"
+
     def __getitem__(self, key: str) -> Self | str:  # type: ignore
         return self.subs[key]
 
@@ -40,7 +64,10 @@ class Stringer(MutableMapping[str, Self | str]):
     def __len__(self) -> int:
         return len(self.subs)
 
+    def __or__(self, other: Self) -> Self:
+        self = deepcopy(self)
+        self.subs.update(other.subs)
+        return self
 
-def rem(pattern: str) -> Pattern[str]:
-    """Multiline, verbose, compiled regex pattern."""
-    return compile(flags=VERBOSE | MULTILINE, pattern=pattern)
+    def __ior__(self, other: Self) -> Self:
+        return self.__or__(other)
