@@ -27,7 +27,6 @@ class Stringer(MutableMapping[str, Self | str]):
             raise ValueError("Stringer missing `root` key.")
         super().__init__()
         _dict: dict[str, Self | str] = {}
-        super().__setattr__("_ns", _ns)
         super().__setattr__("_dict", _dict)
         for k, v in kwds.items():
             if isinstance(k, Stringer) or not isinstance(k, Mapping):
