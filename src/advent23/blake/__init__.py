@@ -6,16 +6,18 @@ from collections.abc import Iterator, Mapping, MutableMapping
 from copy import deepcopy
 from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
+from textwrap import fill
 from types import SimpleNamespace
 from typing import Self
 from warnings import warn
 
 
-def remvs(**kwds: Stringer | str) -> Pattern[str]:
-    return remv(Stringer(**kwds).sub())
+def remap(**kwds: Stringer | str) -> Pattern[str]:
+    """Multiline, verbose regex pattern compile from a `Stringer` mapping."""
+    return rem(Stringer(**kwds).sub())
 
 
-def remv(pattern: str) -> Pattern[str]:
+def rem(pattern: str) -> Pattern[str]:
     """Multiline, verbose, compiled regex pattern."""
     return compile(flags=VERBOSE | MULTILINE, pattern=pattern)
 
@@ -24,39 +26,59 @@ class Stringer(MutableMapping[str, Self | str]):
     def __init__(self, **kwds: Self | str):
         if "root" not in kwds:
             raise ValueError("Stringer missing `root` key.")
-        self._ns = SimpleNamespace(
-            **{k: v if isinstance(v, str) else type(self)(**v) for k, v in kwds.items()}
-        )
+        _ns = SimpleNamespace()
+        _dict: dict[str, Self | str] = _ns.__dict__
+        super().__setattr__("_ns", _ns)
+        super().__setattr__("_dict", _dict)
+        for k, v in kwds.items():
+            if isinstance(k, Stringer) or not isinstance(k, Mapping):
+                self._dict[k] = v  # type: ignore
+            else:
+                self._dict[k] = Stringer(**v)  # type: ignore
         super().__init__()
 
-    def sub(self) -> str:
-        root = root.sub() if isinstance(root := self["root"], type(self)) else root
-        while root != (root := self.rsub(root)):  # type: ignore
+    def sub(self, quiet: bool = False) -> str:
+        root = root.sub() if isinstance(root := self.root, Stringer) else root
+        while root != (root := self.rsub(root, quiet)):
             pass
         return root.replace("$$", "$")
 
-    def rsub(self, child: str | Self) -> str:
-        return Template(child.replace("$$", "$$$$")).substitute(
-            {k: v if isinstance(v, str) else self.rsub(v) for k, v in self.items()}
+    def rsub(self, child: Self | str, quiet: bool) -> str:
+        return Template(child.replace("$$", "$$$$")).substitute(  # type: ignore
+            {
+                k: self.rsub(v, quiet) if isinstance(v, Stringer) else v
+                for k, v in self.items()
+            }
         )
 
-    @property
-    def _dict(self) -> dict[str, Self | str]:
-        return self._ns.__dict__
-
     def __repr__(self) -> str:
-        args = ", ".join([f"{k}={repr(v)}" for k, v in self.items()])  # noqa: RUF010  # Doesn't work when `repr(v)` is `v!r`
-        return f"{type(self).__name__}({args})"
+        args = ", ".join([f"{k}={v!r}" for k, v in self.items()])
+        return fill(f"{Stringer.__name__}({args})", width=88, subsequent_indent=" " * 4)
 
-    def __getattribute__(self, name: str):
-        if name.startswith("_"):
-            return super().__getattribute__(name)
-        return getattr(self._ns, name, None) or super().__getattribute__(name)
+    def __setattr__(self, name: str, value: Self | str):
+        self[name] = value
 
-    def __setattr__(self, name: str, value):
-        if name.startswith("_"):
-            return super().__setattr__(name, value)
-        setattr(self._ns, name, value)
+    def __getattr__(self, name: str):
+        return self[name]
+
+    def __setitem__(self, key: str, value: Self | str):
+        if not key.isidentifier():
+            raise ValueError("Invalid identifier.")
+        self._dict[key] = value  # type: ignore
+
+    def __getitem__(self, key: str) -> Self | str:  # type: ignore
+        return self._dict[key]  # type: ignore
+
+    def __delitem__(self, key: str):
+        if key == "root":
+            raise KeyError("Cannot delete root.")
+        del self._dict[key]  # type: ignore
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._dict)
+
+    def __len__(self) -> int:
+        return len(self._dict)
 
     def __ror__(self, other: Mapping[str, str]) -> Self:
         return self | other
@@ -65,27 +87,12 @@ class Stringer(MutableMapping[str, Self | str]):
         return deepcopy(self).__ior__(other)
 
     def __ior__(self, other: Self | Mapping[str, str]) -> Self:
-        self._dict.update(other._dict if isinstance(other, type(self)) else other)
+        self._dict.update(other)  # type: ignore
         return self
 
     def __copy__(self) -> Self:
         warn("Shallow copy not possible, returning deep copy.", stacklevel=2)
         return deepcopy(self)
 
-    def __deepcopy__(self, memo: dict[int, Self]) -> Self:
-        return type(self)(**self)
-
-    def __getitem__(self, key: str) -> Self | str:  # type: ignore
-        return self._dict[key]
-
-    def __setitem__(self, key: str, sub: Self | str):
-        self._dict[key] = sub
-
-    def __delitem__(self, key: str):
-        del self._dict[key]
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._dict)
-
-    def __len__(self) -> int:
-        return len(self._dict)
+    def __deepcopy__(self, _memo) -> Self:
+        return Stringer(**self)  # type: ignore
