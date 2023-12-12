@@ -7,7 +7,6 @@ from copy import deepcopy
 from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
 from textwrap import fill
-from types import SimpleNamespace
 from typing import Self
 from warnings import warn
 
@@ -27,8 +26,7 @@ class Stringer(MutableMapping[str, Self | str]):
         if "root" not in kwds:
             raise ValueError("Stringer missing `root` key.")
         super().__init__()
-        _ns = SimpleNamespace()
-        _dict: dict[str, Self | str] = _ns.__dict__
+        _dict: dict[str, Self | str] = {}
         super().__setattr__("_ns", _ns)
         super().__setattr__("_dict", _dict)
         for k, v in kwds.items():
