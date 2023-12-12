@@ -9,6 +9,7 @@ from pathlib import Path
 from re import compile
 from tomllib import loads
 from typing import Any
+from warnings import warn
 
 from IPython.core.display import Markdown
 from IPython.display import display
@@ -62,19 +63,28 @@ class Checker:
     chk: CheckDict
 
     def __call__(self, name: str, ans):
-        assert ans == self.chk[name]  # noqa: S101
-
-    def disp(self, name: str, ans):
-        disp_name(name, self.chk[name])
-        self.__call__(name, ans)
+        try:
+            expected = self.chk[name]
+        except KeyError as err:
+            raise KeyError(f'Checkpoint "{name}" not found.') from err
+        try:
+            assert ans == expected  # noqa: S101
+        except AssertionError:
+            display(Markdown(f'### "{make_readable(name)}" check failed'))
+            disp_name("Expected", self.chk[name])
+            disp_name("Your answer", ans)
+            raise
 
 
 class CheckDict(UserDict[str, Any]):
     """Display items when they are set."""
 
-    def __setitem__(self, key: str, item):
-        if item:
-            disp_name(make_readable(key), item)
+    def __setitem__(self, key: Any, item):
+        if item is None:
+            warn(f'Set  "{key}" to `None`.', stacklevel=2)
+        if item == "":
+            warn(f'Set  "{key}" to `""` (empty string).', stacklevel=2)
+        disp_name(make_readable(key), item)
         return super().__setitem__(key, item)
 
 
