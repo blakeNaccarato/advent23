@@ -6,7 +6,7 @@ from collections import UserDict
 from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
-from re import compile
+from re import MULTILINE, compile
 from tomllib import loads
 from typing import Any
 from warnings import warn
@@ -14,8 +14,6 @@ from warnings import warn
 from IPython.core.display import Markdown
 from IPython.display import display
 
-LIMIT = 15
-"""Line limit before output will be truncated."""
 PARTS = ("a", "b")
 """Parts of the puzzle."""
 INPUT = Path("input")
@@ -104,7 +102,7 @@ def disp_name(name: str, elem: Any):
     if isinstance(elem, str):
         print(truncate(str(elem)))  # noqa: T201
         return
-    if isinstance(elem, Collection) and len(elem) > LIMIT:
+    if isinstance(elem, Collection) and len(elem) > LINE_LIMIT:
         print(truncate(str(elem).replace(",", ",\n")))  # noqa: T201
         return
     display(elem)
@@ -112,13 +110,30 @@ def disp_name(name: str, elem: Any):
 
 def truncate(string: str) -> str:
     """Truncate long strings."""
-    if match := long_string.match(string):
-        return f"{match.group()}\n... <long result truncated> ..."
+    string = (
+        f"{match.group()}... <view truncated> ..."
+        if (match := long_string.match(string))
+        else string
+    )
+    if any(wide_strings(string)):
+        lines = truncated_lines(string)
+        lines[0] = f"{lines[0]}{WIDTH_MSG_FIRST}"
+        string = lines[0] + "\n" + f"{WIDTH_MSG}\n".join(lines[1:])
     return string
 
 
-long_string = compile(rf"^(?P<first>(?:.*\n){{{LIMIT}}}).*")
+LINE_LIMIT = 15
+"""Line limit before output will be truncated."""
+long_string = compile(rf"^(?:.*\n){{{LINE_LIMIT}}}")
 """String with lots of newlines."""
+WIDTH_MSG_FIRST = " <...view truncated>"
+WIDTH_MSG = " <...>"
+WIDTH_LIMIT = 88 - len(WIDTH_MSG_FIRST)
+"""Width limit before lines will be truncated."""
+wide_strings = compile(rf"^.{{{WIDTH_LIMIT},}}", flags=MULTILINE).findall
+"""List of long lines."""
+truncated_lines = compile(rf"^.{{,{WIDTH_LIMIT}}}", flags=MULTILINE).findall
+"""List of all lines, truncated to maximum width."""
 
 
 def make_readable(string: str) -> str:
