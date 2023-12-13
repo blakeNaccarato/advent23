@@ -52,6 +52,10 @@ day = 3
 not_parts = [114, 58]
 symbol_positions = [[1, 3], [3, 6], [4, 3], [5, 5], [8, 3], [8, 5]]
 a = 4361
+first_gear = [467, 35]
+first_gear_ratio = 16345
+second_gear = [755, 598]
+second_gear_ratio = 451490
 [example.inp]
 a = '''
 467..114..
@@ -65,4 +69,3 @@ a = '''
 ...$.*....
 .664.598..
 '''
-b = '<INPUT UNKNOWN>'

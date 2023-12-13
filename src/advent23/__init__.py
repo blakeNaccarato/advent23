@@ -81,13 +81,15 @@ class Checker:
 class CheckDict(UserDict[str, Any]):
     """Display items when they are set."""
 
-    def __setitem__(self, key: Any, item):
+    def __setitem__(self, key, item):
+        super().__setitem__(key, item)
         if item is None:
             warn(f'Set  "{key}" to `None`.', stacklevel=2)
         if item == "":
             warn(f'Set  "{key}" to `""` (empty string).', stacklevel=2)
+        if key == "b" and (a := self.get("a")) and item == a:
+            item = "<same as part 1>"
         disp_name(make_readable(key), item)
-        return super().__setitem__(key, item)
 
 
 def disp_names(*args: tuple[str, Any]):
