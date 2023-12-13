@@ -33,6 +33,10 @@ class Example:
     chk: dict[str, Any]
     """Checkpoint dictionary."""
 
+    def __post_init__(self):
+        if not self.inp.get("b"):
+            self.inp["b"] = self.inp["a"]
+
 
 EXAMPLES = {
     str(ex["day"]).zfill(2): Example(ex["inp"], ex["chk"])
