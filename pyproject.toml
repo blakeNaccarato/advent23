@@ -148,6 +148,7 @@ convention = "google"
 [tool.ruff.extend-per-file-ignores]
 "**/*.ipynb" = [
     "B018", # Allow "useless" expressions, which do suppress outputs in notebooks
+    "F401", # TODO: Report this unsafe notebook fix upstream, or check if it's fixed
     "F821", # Allow undefined names, such as `display`
     "S101", # Allow assert
     "T201", # Allow print in notebooks
