@@ -9,9 +9,16 @@
     {
       "id": "user",
       "type": "pickString",
-      "description": "Only run the subset of tests pertaining to this user.",
+      "description": "Subset tests by user.",
       "default": "All",
       "options": ["All", "Abdul", "Blake", "Brad"]
+    },
+    {
+      "id": "day",
+      "type": "pickString",
+      "description": "Subset tests by day.",
+      "default": "All",
+      "options": ["All", "1", "2", "3"]
     }
   ],
 
@@ -23,7 +30,7 @@
       "label": "proj: Personalize tests",
       "type": "shell",
       "options": { "shell": { "executable": "pwsh", "args": ["-Command"] } },
-      "command": "python scripts/personalize_tests.py ${input:user}",
+      "command": "python scripts/personalize_tests.py ${input:user} ${input:day}",
       "icon": { "id": "file-symlink-directory" },
       "problemMatcher": []
     },
