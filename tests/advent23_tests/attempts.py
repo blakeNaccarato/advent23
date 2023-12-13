@@ -16,6 +16,7 @@ from boilercore.notebooks.namespaces import (
     NO_PARAMS,
     Attributes,
     get_nb_client,
+    get_nb_ns,
     parametrize_notebook,
 )
 from cachier import cachier
@@ -98,9 +99,7 @@ class Attempt:
         Args:
             check: Checkpoint name.
         """
-        ns = get_cached_notebook_namespace_PATCHED(
-            nb=self.nb, params={"inp": self.inp}, attributes=["chk", "inp"]
-        )
+        ns = get_nb_ns(nb=self.nb, params={"inp": self.inp}, attributes=["chk", "inp"])
         return chk.get(check) if (chk := getattr(ns, "chk", None)) else None
 
     def get_expected_answer(self, check: str):
