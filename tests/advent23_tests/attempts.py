@@ -14,6 +14,7 @@ from ast import (
     Tuple,
     expr,
     parse,
+    walk,
 )
 from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass
@@ -294,44 +295,35 @@ class ChkVisitor(NodeVisitor):
             checks: Checkpoints attempted in the notebook.
         """
         self.checks = []
-        self.bare_named_assignment_targets: list[str] = []
-        self.on_lhs = False
-        self.chk = False
-
+        self.bare_variables: list[str] = []
+        self.lhs_chk = False
         self.lhs_constant_index: str | None = None
-        self.rhs_valid = False
-
-    @property
-    def on_rhs(self) -> bool:
-        """Whether the visitor is currently on the right-hand-side of an assignment."""
-        return not self.on_lhs
 
     def visit_Assign(self, node: Assign):  # noqa: N802
-        self.bare_named_assignment_targets.extend(
-            [t.id for t in node.targets if isinstance(t, Name)]
-        )
-        self.on_lhs = True
-        for target in [t for t in node.targets if isinstance(t, Subscript)]:
-            self.generic_visit(target)
-        self.on_lhs = self.chk = False
+        lhs_nodes = node.targets
+        self.bare_variables.extend([n.id for n in lhs_nodes if isinstance(n, Name)])
+        for lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
+            self.generic_visit(lhs_node)
+        self.lhs_chk = False
         if self.lhs_constant_index:
             self.generic_visit(node.value)
-        if self.lhs_constant_index and self.rhs_valid:
+        if any(
+            rhs_node.id
+            for rhs_node in walk(node.value)
+            if isinstance(rhs_node, Name) and rhs_node.id in self.bare_variables
+        ):
             self.checks.append(self.lhs_constant_index)
         self.lhs_constant_index = None
-        self.rhs_valid = False
 
     def visit_Name(self, node: Name):  # noqa: N802
-        if self.on_lhs and node.id == "chk":
-            self.chk = True
+        if node.id == "chk":
+            self.lhs_chk = True
             return
-        if self.on_rhs and node.id in self.bare_named_assignment_targets:
-            self.rhs_valid = True
 
     def visit_Constant(self, node: Constant):  # noqa: N802
-        if self.on_lhs and self.chk:
+        if self.lhs_chk:
             self.lhs_constant_index = node.value
-        self.chk = False
+        self.lhs_chk = False
 
 
 expr_T = TypeVar("expr_T", bound=expr)  # noqa: N816
