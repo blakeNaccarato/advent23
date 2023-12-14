@@ -56,9 +56,11 @@
   //* Notebook
   "notebook.formatOnCellExecution": true,
   "notebook.formatOnSave.enabled": true,
+  //? Set to `never` for now. Sometimes removes used imports on save in race conditions
+  //? https://github.com/astral-sh/ruff-lsp/issues/320
   "notebook.codeActionsOnSave": {
-    "source.fixAll.ruff": "explicit",
-    "source.organizeImports.ruff": "explicit"
+    "source.fixAll.ruff": "never",
+    "source.organizeImports.ruff": "never"
   },
   //* Modify your `keybindings.json`
   //? Add the following to your global `keybindings.json`
