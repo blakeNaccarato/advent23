@@ -296,34 +296,29 @@ class ChkVisitor(NodeVisitor):
         """
         self.checks = []
         self.bare_variables: list[str] = []
-        self.lhs_chk = False
-        self.lhs_constant_index: str | None = None
+        self.subscripting_chk = False
+        self.constant_chk_index: int | str | None = None
 
     def visit_Assign(self, node: Assign):  # noqa: N802
         lhs_nodes = node.targets
         self.bare_variables.extend([n.id for n in lhs_nodes if isinstance(n, Name)])
-        for lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
-            self.generic_visit(lhs_node)
-        self.lhs_chk = False
-        if self.lhs_constant_index:
-            self.generic_visit(node.value)
-        if any(
-            rhs_node.id
-            for rhs_node in walk(node.value)
-            if isinstance(rhs_node, Name) and rhs_node.id in self.bare_variables
-        ):
-            self.checks.append(self.lhs_constant_index)
-        self.lhs_constant_index = None
+        for subscripted_lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
+            self.generic_visit(subscripted_lhs_node)
+        self.subscripting_chk = False
+        for rhs_node in walk(node.value):
+            if isinstance(rhs_node, Name) and rhs_node.id in self.bare_variables:
+                self.checks.append(self.constant_chk_index)
+                break
+        self.constant_chk_index = None
 
     def visit_Name(self, node: Name):  # noqa: N802
         if node.id == "chk":
-            self.lhs_chk = True
-            return
+            self.subscripting_chk = True
 
     def visit_Constant(self, node: Constant):  # noqa: N802
-        if self.lhs_chk:
-            self.lhs_constant_index = node.value
-        self.lhs_chk = False
+        if self.subscripting_chk:
+            self.constant_chk_index = node.value
+        self.subscripting_chk = False
 
 
 expr_T = TypeVar("expr_T", bound=expr)  # noqa: N816
