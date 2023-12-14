@@ -303,7 +303,7 @@ class ChkVisitor(NodeVisitor):
         lhs_nodes = node.targets
         self.bare_variables.extend([n.id for n in lhs_nodes if isinstance(n, Name)])
         for subscripted_lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
-            self.generic_visit(subscripted_lhs_node)
+            self.visit(subscripted_lhs_node)
         self.subscripting_chk = False
         for rhs_node in walk(node.value):
             if isinstance(rhs_node, Name) and rhs_node.id in self.bare_variables:
