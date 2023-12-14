@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
-from ast import Assign, Constant, Name, NodeVisitor, Subscript, parse, walk
-from collections.abc import Callable, Hashable, Iterator
+from ast import (
+    Assign,
+    Attribute,
+    Constant,
+    List,
+    Name,
+    NodeVisitor,
+    Starred,
+    Subscript,
+    Tuple,
+    expr,
+    parse,
+)
+from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import partial
 from inspect import getsource, signature
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Self, TypeAlias
+from typing import Any, Self, TypeAlias, TypeVar
 
 from boilercore.notebooks.namespaces import (
     NO_ATTRS,
@@ -146,50 +158,6 @@ def get_attempted_checks(src: str) -> list[str]:
     return visitor.checks
 
 
-class ChkVisitor(NodeVisitor):
-    def __init__(self):
-        """Visit variable assignments, looking for valid checkpoints.
-
-        Valid checkpoints are assignments to a key in the `chk` mapping which reference a
-        previous variable. Valid checks look like the following:
-
-        ```Python
-        chk["literal_string_key"] = <variable referenced somewhere here>
-        ```
-
-        Attributes:
-            names: Names of variables encountered in the notebook.
-            checks: Checkpoints attempted in the notebook.
-        """
-        self.names: set[str] = set()
-        self.checks: list[str] = []
-
-    def visit_Assign(self, node: Assign):  # noqa: N802
-        # Find variables, e.g. names on the LHS of assignments
-        if isinstance((target := node.targets[0]), Name):
-            self.names.add(target.id)
-        # Validate checks
-        if (
-            # Indexing appears on the LHS, e.g. `name[...]`
-            isinstance((target := node.targets[0]), Subscript)
-            # The variable on the LHS is the `chk` variable, e.g. `chk[...]`
-            and isinstance((name := target.value), Name)
-            and name.id == "chk"
-            # The indexer is a name not a slice, e.g. `chk[named_index]`, not `0:10:2`
-            and isinstance((index := target.slice), Constant)
-            # The RHS references an existing variable
-            and any(
-                n.id
-                for n in walk(node.value)
-                if isinstance(n, Name) and n.id in self.names
-            )
-        ):
-            # The check is valid e.g. `valid_check` in `chk["valid_check"] = expr`
-            # Where `expr` references an existing variable
-            self.checks.append(index.value)
-        self.generic_visit(node)
-
-
 Params: TypeAlias = dict[str, Any]
 """Notebook parameters."""
 
@@ -308,3 +276,208 @@ def get_cached_notebook_namespace_PATCHED(  # noqa: N802
         ```
     """
     return get_notebook_namespace_PATCHED(nb, params, attributes)
+
+
+class ChkVisitor(NodeVisitor):
+    def __init__(self):
+        """Visit variable assignments, looking for valid checkpoints.
+
+        Valid checkpoints are assignments to a key in the `chk` mapping which reference a
+        previous variable. Valid checks look like the following:
+
+        ```Python
+        chk["literal_string_key"] = <variable referenced somewhere here>
+        ```
+
+        Attributes:
+            names: Names of variables encountered in the notebook.
+            checks: Checkpoints attempted in the notebook.
+        """
+        self.checks = []
+        self.bare_named_assignment_targets: list[str] = []
+        self.on_lhs = False
+        self.chk = False
+        self.rhs_valid = False
+        self.lhs_constant_index: str | None = None
+
+    @property
+    def on_rhs(self) -> bool:
+        """Whether the visitor is currently on the right-hand-side of an assignment."""
+        return not self.on_lhs
+
+    def visit_Assign(self, node: Assign):  # noqa: N802
+        self.bare_named_assignment_targets.extend(
+            [t.id for t in node.targets if isinstance(t, Name)]
+        )
+        for target in [t for t in node.targets if isinstance(t, Subscript)]:
+            self.on_lhs = True
+            self.generic_visit(target)
+            self.on_lhs = False
+        if self.lhs_constant_index:
+            self.generic_visit(node.value)
+        if self.lhs_constant_index and self.rhs_valid:
+            self.checks.append(self.lhs_constant_index)
+            self.lhs_constant_index = None
+            self.rhs_valid = False
+
+    def visit_Name(self, node: Name):  # noqa: N802
+        if self.on_lhs and node.id == "chk":
+            self.chk = True
+            return
+        if self.on_rhs and node.id in self.bare_named_assignment_targets:
+            self.rhs_valid = True
+
+    def visit_Constant(self, node: Constant):  # noqa: N802
+        if self.chk:
+            self.lhs_constant_index = node.value
+        self.chk = False
+
+
+expr_T = TypeVar("expr_T", bound=expr)  # noqa: N816
+MappingAny: TypeAlias = Mapping[Any, Any]
+
+VALID_ASSIGNMENT_EXPRESSIONS = [Attribute, Subscript, Starred, Name, List, Tuple]
+"""Expressions that can appear in assignment contexts."""
+
+
+class Targets(MappingAny):
+    def __init__(self, mapping: MappingAny | None = None):
+        """Mapping of possible assignment target types to lists of their instances.
+
+        The `Attribute`, `Subscript`, `Starred`, `Name`, `List`, and `Tuple` types are
+        mapping keys. For dispatching target encounters in node visits, e.g. in a
+        `visit_Assign` method of a `ast.NodeVisitor` subclass. Index a `Targets`
+        instance, e.g. `my_targets`, like `my_targets[type(target)]`.
+
+        Args:
+            mapping (optional): Preallocate with this mapping. Not validated.
+
+        Properties:
+            unique: Mapping with sets of unique nodes for target types instead of lists.
+
+        Notes:
+            - See possible assignment target types in the [abstract gramar section][1]
+              of the Python documentation.
+            - Can't use higher-kinded TypeVars to make this possible, for now. See
+              [python/typing#548][2].
+
+            [1]: <https://docs.python.org/3/library/ast.html#abstract-grammar>
+            [2]: <https://github.com/python/typing/issues/548>
+
+        Example:
+
+            The following prints `['x', 'y']`.
+
+            ```Python
+            from ast import Assign, Name, NodeVisitor, parse
+
+            SRC = '''
+            x = 1
+            y = 2
+            '''
+
+            def main():
+                visitor = Visitor()
+                visitor.visit(parse(SRC))
+                print(visitor.targets[Name])
+
+            class Visitor(NodeVisitor):
+                def __init__(self):
+                    self.targets = Targets()
+                def visit_Assign(self, node: Assign):
+                    for target in node.targets:
+                        self.targets[type(target)].append(target)
+                    self.generic_visit(node)
+
+            main()
+            ```
+        """
+        super().__init__()
+        if mapping is not None:
+            self.data: MappingAny = {k: list(v) for k, v in mapping.items()}
+            return
+        self.data: MappingAny = {
+            statement: [] for statement in VALID_ASSIGNMENT_EXPRESSIONS
+        }
+
+    @property
+    def unique(self) -> TargetSet:
+        """Mapping with sets of unique nodes for target types instead of lists."""
+        return TargetSet(self)
+
+    def __getitem__(self, key: type[expr_T]) -> list[expr_T]:
+        return self.data[key]
+
+    def __iter__(self) -> Iterator[type[expr]]:
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
+class TargetSet(MappingAny):
+    def __init__(self, mapping: MappingAny | None = None):
+        """Mapping with sets of unique nodes for target types.
+
+        The `Attribute`, `Subscript`, `Starred`, `Name`, `List`, and `Tuple` types are
+        mapping keys. For dispatching target encounters in node visits, e.g. in a
+        `visit_Assign` method of a `ast.NodeVisitor` subclass. Index a `Targets`
+        instance, e.g. `my_targets`, like `my_targets[type(target)]`.
+
+        Args:
+            mapping (optional): Preallocate with this mapping. Not validated.
+
+        Notes:
+            - See possible assignment target types in the [abstract gramar section][1]
+              of the Python documentation.
+            - Can't use higher-kinded TypeVars to make this possible, for now. See
+              [python/typing#548][2].
+
+            [1]: <https://docs.python.org/3/library/ast.html#abstract-grammar>
+            [2]: <https://github.com/python/typing/issues/548>
+
+        Example:
+
+            The following prints `{'x', 'y'}` (order not guaranteed with sets).
+
+            ```Python
+            from ast import Assign, Name, NodeVisitor, parse
+
+            SRC = '''
+            x = 1
+            y = 2
+            x = 3
+            '''
+
+            def main():
+                visitor = Visitor()
+                visitor.visit(parse(SRC))
+                print(visitor.targets[Name])
+
+            class Visitor(NodeVisitor):
+                def __init__(self):
+                    self.targets = Targets()
+                def visit_Assign(self, node: Assign):
+                    for target in node.targets:
+                        self.targets[type(target)].add(target)
+                    self.generic_visit(node)
+
+            main()
+            ```
+        """
+        super().__init__()
+        if mapping is not None:
+            self.data: MappingAny = {k: set(v) for k, v in mapping.items()}
+            return
+        self.data: MappingAny = {
+            statement: set() for statement in VALID_ASSIGNMENT_EXPRESSIONS
+        }
+
+    def __getitem__(self, key: type[expr_T]) -> set[expr_T]:
+        return self.data[key]
+
+    def __iter__(self) -> Iterator[type[expr]]:
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        return len(self.data)
