@@ -297,8 +297,9 @@ class ChkVisitor(NodeVisitor):
         self.bare_named_assignment_targets: list[str] = []
         self.on_lhs = False
         self.chk = False
-        self.rhs_valid = False
+
         self.lhs_constant_index: str | None = None
+        self.rhs_valid = False
 
     @property
     def on_rhs(self) -> bool:
@@ -309,16 +310,16 @@ class ChkVisitor(NodeVisitor):
         self.bare_named_assignment_targets.extend(
             [t.id for t in node.targets if isinstance(t, Name)]
         )
+        self.on_lhs = True
         for target in [t for t in node.targets if isinstance(t, Subscript)]:
-            self.on_lhs = True
             self.generic_visit(target)
-            self.on_lhs = False
+        self.on_lhs = self.chk = False
         if self.lhs_constant_index:
             self.generic_visit(node.value)
         if self.lhs_constant_index and self.rhs_valid:
             self.checks.append(self.lhs_constant_index)
-            self.lhs_constant_index = None
-            self.rhs_valid = False
+        self.lhs_constant_index = None
+        self.rhs_valid = False
 
     def visit_Name(self, node: Name):  # noqa: N802
         if self.on_lhs and node.id == "chk":
@@ -328,7 +329,7 @@ class ChkVisitor(NodeVisitor):
             self.rhs_valid = True
 
     def visit_Constant(self, node: Constant):  # noqa: N802
-        if self.chk:
+        if self.on_lhs and self.chk:
             self.lhs_constant_index = node.value
         self.chk = False
 
