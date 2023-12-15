@@ -150,18 +150,28 @@ class ChkVisitor(NodeVisitor):
             checks: Checkpoints attempted in the notebook.
         """
         self.checks = []
-        self.bare_variables: list[str] = []
+        self.variables: list[str] = []
         self.subscripting_chk = False
         self.constant_chk_index: int | str | None = None
 
     def visit_Assign(self, node: Assign):  # noqa: N802
         lhs_nodes = node.targets
-        self.bare_variables.extend([n.id for n in lhs_nodes if isinstance(n, Name)])
+        check_also = (
+            isinstance(first_lhs_node := lhs_nodes[0], Name)
+            and first_lhs_node.id == "CHECK_ALSO"
+        )
+        for tree in (walk(n) for n in lhs_nodes):
+            for lhs_node in tree:
+                if isinstance(lhs_node, Name):
+                    self.variables.append(lhs_node.id)
         for subscripted_lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
             self.visit(subscripted_lhs_node)
         self.subscripting_chk = False
         for rhs_node in walk(node.value):
-            if isinstance(rhs_node, Name) and rhs_node.id in self.bare_variables:
+            if check_also and isinstance(rhs_node, Constant):
+                self.checks.append(rhs_node.value)
+                continue
+            if isinstance(rhs_node, Name) and rhs_node.id in self.variables:
                 self.checks.append(self.constant_chk_index)
                 break
         self.constant_chk_index = None

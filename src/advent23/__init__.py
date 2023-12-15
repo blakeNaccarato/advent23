@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Collection
+from collections.abc import Callable, Collection, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from re import MULTILINE, compile
+from re import MULTILINE, Pattern, compile
 from tomllib import loads
-from typing import Any
+from typing import Any, TypeAlias
 from warnings import warn
 
 from IPython.core.display import Markdown
@@ -60,22 +60,10 @@ def get_inp(day: int | str, user: str = "", part: str = "") -> CheckDict:
     )
 
 
-@dataclass
-class Checker:
-    chk: CheckDict
+PatternCheck: TypeAlias = Callable[[Pattern[str]], Any]
+PatternChecks: TypeAlias = MutableMapping[str, PatternCheck]
 
-    def __call__(self, name: str, ans):
-        try:
-            expected = self.chk[name]
-        except KeyError as err:
-            raise KeyError(f'Checkpoint "{name}" not found.') from err
-        try:
-            assert ans == expected  # noqa: S101
-        except AssertionError:
-            display(Markdown(f'### "{make_readable(name)}" check failed'))
-            disp_name("Expected", self.chk[name])
-            disp_name("Your answer", ans)
-            raise
+NO_CHECKS = {}
 
 
 class CheckDict(UserDict[str, Any]):
