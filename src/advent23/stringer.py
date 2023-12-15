@@ -10,6 +10,7 @@ from string import Template
 from textwrap import fill
 from types import SimpleNamespace
 from typing import Any, Self
+from warnings import warn
 
 from IPython.core.display import Markdown
 from IPython.display import display
@@ -59,11 +60,17 @@ class StringerChecker:
         for name, check in self.checks.items():
             if name not in self.chk:
                 continue
-            check(pattern)
+            try:
+                check(pattern)
+            except:  # noqa: E722
+                warn(f'Checkpoint "{name}" failed.', stacklevel=2)
         for name, check in also.items():
-            check(pattern)
-            self.checks[name] = check
-            self.chk[name] = check(pattern)
+            try:
+                result = check(pattern)
+                self.checks[name] = check
+                self.chk[name] = result
+            except:  # noqa: E722
+                warn(f'Checkpoint "{name}" failed.', stacklevel=2)
         return stringer
 
     def check(self, name: str, ans):

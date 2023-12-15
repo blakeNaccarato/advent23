@@ -11,7 +11,7 @@
       "type": "pickString",
       "description": "Subset tests by user.",
       "default": "All",
-      "options": ["All", "Abdul", "Blake", "Brad"]
+      "options": ["All", "Abdul", "Blake", "Brad", "together_23_12_15"]
     },
     {
       "id": "day",

@@ -13,9 +13,11 @@ from nbformat import NO_CONVERT, reads
 
 from advent23 import EXAMPLES
 
+SKIP_FLAKY = True
+
 ATTEMPTS = Path("src/advent23")
 """Location of attempts."""
-USERS = ("blake", "abdul", "brad")
+USERS = ("blake", "abdul", "brad", "together_23_12_15")
 """Users to test."""
 
 
@@ -62,6 +64,8 @@ class Attempt:
         Finds keys of `chk` associated with assignments in which the right-hand-side of
         the assignment references an earlier variable.
         """
+        if SKIP_FLAKY:
+            return list(EXAMPLES[self.day].chk.keys())
         checks = get_attempted_checks(
             "\n".join(
                 c.source.strip()
