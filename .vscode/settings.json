@@ -54,15 +54,14 @@
   "files.trimFinalNewlines": true,
   "files.trimTrailingWhitespace": true,
   //* Notebook
+  //? https://github.com/microsoft/vscode/issues/195223#issuecomment-1800137313
+  "notebook.insertFinalNewline": false,
+  //? Avoid code actions on notebook save for now, Ruff misbehaves in certain cases
+  //? https://github.com/astral-sh/ruff-lsp/issues/320
   "notebook.formatOnCellExecution": true,
   "notebook.formatOnSave.enabled": true,
-  //? Set to `never` for now. Sometimes removes used imports on save in race conditions
-  //? https://github.com/astral-sh/ruff-lsp/issues/320
-  "notebook.codeActionsOnSave": {
-    "source.fixAll.ruff": "never",
-    "source.organizeImports.ruff": "never"
-  },
-  //* Modify your `keybindings.json`
+
+  //TODO: Modify your `keybindings.json`
   //? Add the following to your global `keybindings.json`
   //? Ruff notebook fix/format on save is not working properly
   // {
