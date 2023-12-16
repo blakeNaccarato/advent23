@@ -1,7 +1,5 @@
 # Requirements for devs
 
-# Install tests package so modules can be run in debugging
--e tests/.
 # Experiment
 ipykernel==6.27.1
 # Debug
