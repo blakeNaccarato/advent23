@@ -1,9 +1,10 @@
-# Requirements for CI and devs
+# Requirements for both dev and CI environments
 
 # ? For caching with dill, unlike the stock PyPI version
 cachier@git+https://github.com/blakeNaccarato/cachier@0892f53dc8fd9fb8a7f959305a1a9ec692876dc0
 
-# Tests
--e tests/.
-
--r requirements_docs.txt
+# Documentation
+myst-parser==2.0.0
+sphinx-autobuild==2021.03.14
+sphinx-book-theme==1.0.1
+sphinx-design==0.5.0

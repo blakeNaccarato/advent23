@@ -4,5 +4,5 @@ Set up the project, creating a virtual environment, installing requirements and 
 
 py -3.11 -m venv '.venv' --upgrade-deps
 . '.venv/Scripts/activate'
-python -m pip install --editable '.' --requirement 'requirements/requirements_dev.txt'
+python -m pip install --editable '.' --editable 'tests/.' --requirement 'requirements/requirements_dev.txt'
 pre-commit install --install-hooks

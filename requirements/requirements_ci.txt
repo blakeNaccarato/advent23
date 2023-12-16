@@ -1,6 +1,6 @@
 # Requirements for CI
 
-# Failed test annotations in CI
+# Annotate test failures in PRs
 pytest-github-actions-annotate-failures==0.2.0
 
 -r requirements_both.txt
