@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from ast import Assign, Constant, Name, NodeVisitor, Subscript, parse, walk
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from re import MULTILINE, compile
 from typing import Self
 
+from astroid import Uninferable, extract_node
+from astroid.exceptions import InferenceError
 from boilercore.notebooks.namespaces import get_nb_ns
 from nbformat import NO_CONVERT, reads
 
 from advent23 import EXAMPLES
-
-SKIP_FLAKY = True
 
 ATTEMPTS = Path("src/advent23")
 """Location of attempts."""
@@ -35,6 +35,10 @@ def walk_attempts(other_user: str = "") -> Iterator[Attempt]:
             if att.nb and att.inp
             if other_user and att.user != other_user or not other_user
         )
+
+
+CHECKS = compile(pattern=r'(?P<line>^chk\["(?P<check>[\w_]+)"\].+$)', flags=MULTILINE)
+CHECKS_REPL = r"\g<line>  #@"
 
 
 @dataclass
@@ -64,15 +68,31 @@ class Attempt:
         Finds keys of `chk` associated with assignments in which the right-hand-side of
         the assignment references an earlier variable.
         """
-        if SKIP_FLAKY:
-            return list(EXAMPLES[self.day].chk.keys())
-        checks = get_attempted_checks(
-            "\n".join(
-                c.source.strip()
-                for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
-                if c.cell_type == "code"
-            )
+        possible_checks: list[str] = []
+        src = "\n".join(
+            c.source.strip()
+            for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
+            if c.cell_type == "code"
         )
+        for match in CHECKS.finditer(src):
+            possible_checks.append(match["check"])
+            match.expand(r"\g<line>  #@")
+        src = CHECKS.sub(repl=CHECKS_REPL, string=src)
+        checks: list[str] = []
+        for check, node in zip(possible_checks, extract_node(src), strict=True):  # type: ignore
+            inferred_values = None
+            try:
+                inferred_values = list(node.value.infer())
+            except InferenceError as exc:
+                if "StopIteration" in exc.message:
+                    checks.append(check)
+                    continue
+            if (
+                inferred_values is None
+                # or any(i.parent for i in inferred_values)
+                or any(i is Uninferable for i in inferred_values)
+            ):
+                checks.append(check)
         if self.other:
             return [c for c in checks if c in self.other.checks]
         return [c for c in checks if c in EXAMPLES[self.day].chk]
@@ -129,62 +149,3 @@ class Attempt:
                 if p
             ]
         )
-
-
-def get_attempted_checks(src: str) -> list[str]:
-    """Get attempted checkpoints from source code."""
-    visitor = ChkVisitor()
-    visitor.visit(parse(src))
-    return visitor.checks
-
-
-class ChkVisitor(NodeVisitor):
-    def __init__(self):
-        """Visit variable assignments, looking for valid checkpoints.
-
-        Valid checkpoints are assignments to a key in the `chk` mapping which reference a
-        previous variable. Valid checks look like the following:
-
-        ```Python
-        chk["literal_string_key"] = <variable referenced somewhere here>
-        ```
-
-        Attributes:
-            names: Names of variables encountered in the notebook.
-            checks: Checkpoints attempted in the notebook.
-        """
-        self.checks = []
-        self.variables: list[str] = []
-        self.subscripting_chk = False
-        self.constant_chk_index: int | str | None = None
-
-    def visit_Assign(self, node: Assign):  # noqa: N802
-        lhs_nodes = node.targets
-        check_also = (
-            isinstance(first_lhs_node := lhs_nodes[0], Name)
-            and first_lhs_node.id == "CHECK_ALSO"
-        )
-        for tree in (walk(n) for n in lhs_nodes):
-            for lhs_node in tree:
-                if isinstance(lhs_node, Name):
-                    self.variables.append(lhs_node.id)
-        for subscripted_lhs_node in [n for n in lhs_nodes if isinstance(n, Subscript)]:
-            self.visit(subscripted_lhs_node)
-        self.subscripting_chk = False
-        for rhs_node in walk(node.value):
-            if check_also and isinstance(rhs_node, Constant):
-                self.checks.append(rhs_node.value)
-                continue
-            if isinstance(rhs_node, Name) and rhs_node.id in self.variables:
-                self.checks.append(self.constant_chk_index)
-                break
-        self.constant_chk_index = None
-
-    def visit_Name(self, node: Name):  # noqa: N802
-        if node.id == "chk":
-            self.subscripting_chk = True
-
-    def visit_Constant(self, node: Constant):  # noqa: N802
-        if self.subscripting_chk:
-            self.constant_chk_index = node.value
-        self.subscripting_chk = False
