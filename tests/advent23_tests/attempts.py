@@ -8,7 +8,7 @@ from pathlib import Path
 from re import MULTILINE, compile
 from typing import Self
 
-from astroid import Uninferable, extract_node
+from astroid import Assign, Uninferable, extract_node
 from astroid.exceptions import InferenceError
 from boilercore.notebooks.namespaces import get_nb_ns
 from nbformat import NO_CONVERT, reads
@@ -22,10 +22,13 @@ USERS = ("blake", "abdul", "brad", "together_23_12_15")
 
 
 def walk_attempts(other_user: str = "") -> Iterator[Attempt]:
-    """Walk the attempts for all users, optionally comparing against another user.
+    """Walk all user attempts, optionally comparing against another user.
+
+    Yields:
+        Attempts of all users, optionally comparing against another user.
 
     Args:
-        other_user: Optionally, another user's attempts to compare against.
+        other_user (optional): Another user's attempts to compare against.
     """
     for day in EXAMPLES:
         other = Attempt(other_user, day) if other_user else None
@@ -35,10 +38,6 @@ def walk_attempts(other_user: str = "") -> Iterator[Attempt]:
             if att.nb and att.inp
             if other_user and att.user != other_user or not other_user
         )
-
-
-CHECKS = compile(pattern=r'(?P<line>^chk\["(?P<check>[\w_]+)"\].+$)', flags=MULTILINE)
-CHECKS_REPL = r"\g<line>  #@"
 
 
 @dataclass
@@ -68,25 +67,11 @@ class Attempt:
         Finds keys of `chk` associated with assignments in which the right-hand-side of
         the assignment references an earlier variable.
         """
-        src = "\n".join(
-            c.source.strip()
-            for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
-            if c.cell_type == "code"
-        )
-        possible_checks = [match["check"] for match in CHECKS.finditer(src)]
-        src = CHECKS.sub(repl=CHECKS_REPL, string=src)
-        checks: list[str] = []
-        for check, node in zip(possible_checks, extract_node(src), strict=True):  # type: ignore
-            try:
-                inferences = list(node.value.infer())
-            except InferenceError:
-                checks.append(check)
-                continue
-            if any(inference is Uninferable for inference in inferences):
-                checks.append(check)
-        if self.other:
-            return [c for c in checks if c in self.other.checks]
-        return [c for c in checks if c in EXAMPLES[self.day].chk]
+        return [
+            check
+            for check in get_attempted_checks(self.nb)
+            if check in (self.other.checks if self.other else EXAMPLES[self.day].chk)
+        ]
 
     @property
     def nb(self) -> str:
@@ -121,22 +106,61 @@ class Attempt:
             else EXAMPLES[self.day].chk.get(check)
         )
 
-    def get_id(self, check: str, pos: int | None = None) -> str:
+    def get_id(self, check: str) -> str:
         """Get the test ID associated with this attempt.
 
         Args:
             check: Checkpoint name.
             pos: Optionally, position of this checkpoint in the test group.
         """
-        return "_".join(
-            [
-                p
-                for p in (
-                    self.user,
-                    f"day{self.day}",
-                    f"chk{str(pos).zfill(2)}" if pos is not None else "",
-                    check,
-                )
-                if p
-            ]
-        )
+        return "_".join([p for p in (self.user, f"day{self.day}", check) if p])
+
+
+CHECKS = compile(pattern=r'(?P<line>^chk\["(?P<check>[\w_]+)"\].+$)', flags=MULTILINE)
+"""Find notebook-level assignments to a `chk` mapping.
+
+Group matches by line and checkpoint name.
+"""
+
+CHECKS_REPL = r"\g<line>  #@"
+"""Annotate checks for node extraction with `astroid`."""
+
+
+def get_attempted_checks(nb: str) -> list[str]:
+    """Get names of attempted checkpoints from notebook contents.
+
+    Use `astroid` to infer possible values of assignments to `chk["..."]`. If inference
+    fails, or an uninferable value is found, assume the checkpoint was attempted. This
+    tends to identify non-trivial right-hand-sides, excluding checks assigned to
+    hardcoded constants as in starter template notebooks.
+
+    Returns:
+        List of attempted checkpoints.
+
+    Args:
+        nb: Jupyter notebook contents.
+    """
+    src = "\n".join(
+        c.source.strip()
+        for c in reads(nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
+        if c.cell_type == "code"
+    )
+    checks = [match["check"] for match in CHECKS.finditer(src)]
+    src = CHECKS.sub(repl=CHECKS_REPL, string=src)
+    # `extract_node` unpacks singletons, so wrap in list for consistency
+    nodes = nodes if isinstance((nodes := extract_node(src)), list) else [nodes]
+    attempted_checks: list[str] = []
+    for check, node in zip(checks, nodes, strict=True):
+        # Extracted nodes should all be assignments, but guard against it anwyays
+        if not isinstance(node, Assign):
+            continue
+        # The check is likely an organic attempt if inference fails...
+        try:
+            inferences = list(node.value.infer())
+        except InferenceError:
+            attempted_checks.append(check)
+            continue
+        # ...or if any returned value is considered uniferable
+        if any(inf is Uninferable for inf in inferences):
+            attempted_checks.append(check)
+    return attempted_checks
