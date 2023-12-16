@@ -2,17 +2,5 @@
 
 # ? For caching with dill, unlike the stock PyPI version
 cachier@git+https://github.com/blakeNaccarato/cachier@0892f53dc8fd9fb8a7f959305a1a9ec692876dc0
-# ? Additional testing helpers
-boilercore==0.0.4
-
-# Formatting in VSCode and in pre-commit
-ruff==0.1.5
-# Testing
-pytest==7.4.3
-# Testing plugins
-pytest-cov==4.1.0
-pytest-custom-exit-code==0.3.0
-# Format notebooks
-nb-clean==3.1.0
 
 -r requirements_docs.txt
