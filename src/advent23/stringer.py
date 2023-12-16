@@ -120,7 +120,8 @@ class Stringer(MutableMapping[str, Self | str]):
         return self
 
 
-PatternChecks: TypeAlias = MutableMapping[str, Callable[[Pattern[str]], Any]]
+PatternCheck = Callable[[Pattern[str]], Any]
+PatternChecks: TypeAlias = MutableMapping[str, PatternCheck]
 
 NO_CHECKS = {}
 
@@ -141,16 +142,16 @@ class StringerChecker:
         pattern = remap(stringer)
         disp_name("pattern", pattern.pattern)
         if all(
-            self.check(name, pattern)
-            for name in chain.from_iterable([self.checks, also])
+            self.check(pattern, name, check)
+            for name, check in chain.from_iterable([self.checks.items(), also.items()])
         ):
             self.stringer = stringer
         return self.stringer
 
-    def check(self, name: str, pattern: Pattern[str]) -> bool:
+    def check(self, pattern: Pattern[str], name: str, check: PatternCheck) -> bool:
         result = None
         with suppress(Exception):
-            result = self.checks[name](pattern)
+            result = check(pattern)
         if result is None:
             warn(f'Checkpoint "{name}" failed.', stacklevel=2)
             return False
