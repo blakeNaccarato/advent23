@@ -17,7 +17,7 @@ from advent23 import EXAMPLES
 
 ATTEMPTS = Path("src/advent23")
 """Location of attempts."""
-USERS = ("blake", "abdul", "brad", "together_23_12_15")
+USERS = ("blake", "abdul", "brad", "together")
 """Users to test."""
 
 
