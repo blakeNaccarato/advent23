@@ -68,15 +68,12 @@ class Attempt:
         Finds keys of `chk` associated with assignments in which the right-hand-side of
         the assignment references an earlier variable.
         """
-        possible_checks: list[str] = []
         src = "\n".join(
             c.source.strip()
             for c in reads(self.nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
             if c.cell_type == "code"
         )
-        for match in CHECKS.finditer(src):
-            possible_checks.append(match["check"])
-            match.expand(r"\g<line>  #@")
+        possible_checks = [match["check"] for match in CHECKS.finditer(src)]
         src = CHECKS.sub(repl=CHECKS_REPL, string=src)
         checks: list[str] = []
         for check, node in zip(possible_checks, extract_node(src), strict=True):  # type: ignore
@@ -89,7 +86,6 @@ class Attempt:
                     continue
             if (
                 inferred_values is None
-                # or any(i.parent for i in inferred_values)
                 or any(i is Uninferable for i in inferred_values)
             ):
                 checks.append(check)
