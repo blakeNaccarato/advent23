@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
+from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, field
+from itertools import chain
 from re import MULTILINE, VERBOSE, Pattern, compile
 from string import Template
 from textwrap import fill
 from types import SimpleNamespace
-from typing import Any, Self
+from typing import Any, Self, TypeAlias
 from warnings import warn
 
 from IPython.core.display import Markdown
 from IPython.display import display
 
-from advent23 import NO_CHECKS, CheckDict, PatternChecks, disp_name, make_readable
+from advent23 import CheckDict, disp_name, make_readable
 
 
 def remap(
@@ -43,62 +45,17 @@ def g(N: str, P: str = r".+", **kwds) -> dict[str, Stringer]:  # noqa: N803
     return {N: Stringer(r=r"(?P<$N>$P)", N=N, P=P, **kwds)}
 
 
-@dataclass
-class StringerChecker:
-    chk: CheckDict
-    checks: PatternChecks = field(default_factory=dict)
-
-    def __call__(self, stringer: Stringer, also: PatternChecks = NO_CHECKS) -> Stringer:
-        """Run checks and return the `Stringer` that passed them.
-
-        Args:
-            stringer: Stringer to substitute, compile, and check.
-            also: Checks to assign if existing checks pass.
-        """
-        pattern = remap(stringer)
-        disp_name("pattern", pattern.pattern)
-        for name, check in self.checks.items():
-            if name not in self.chk:
-                continue
-            try:
-                check(pattern)
-            except:  # noqa: E722
-                warn(f'Checkpoint "{name}" failed.', stacklevel=2)
-        for name, check in also.items():
-            try:
-                result = check(pattern)
-                self.checks[name] = check
-                self.chk[name] = result
-            except:  # noqa: E722
-                warn(f'Checkpoint "{name}" failed.', stacklevel=2)
-        return stringer
-
-    def check(self, name: str, ans):
-        try:
-            expected = self.chk[name]
-        except KeyError as err:
-            raise KeyError(f'Checkpoint "{name}" not found.') from err
-        try:
-            assert ans == expected  # noqa: S101
-        except AssertionError:
-            display(Markdown(f'### "{make_readable(name)}" check failed'))
-            disp_name("Expected", self.chk[name])
-            disp_name("Your answer", ans)
-            raise
-
-
 class Stringer(MutableMapping[str, Self | str]):
     def __init__(self, **kwds: Self | str | Mapping[str, Self | str]):
         """Recursive string substitution template."""
         super().__init__()
+        if not kwds:
+            kwds["r"] = ""
         if "r" not in kwds:
             raise ValueError("Stringer missing root key `r`.")
         self._ns = SimpleNamespace()
         for k, v in kwds.items():
-            if isinstance(v, type(self) | str):
-                self[k] = v
-            else:
-                self[k] = Stringer(**v)  # type: ignore
+            self[k] = v if isinstance(v, type(self) | str) else Stringer(**v)  # type: ignore
 
     def sub(self, quiet: bool = False, final: bool = True) -> str:
         """Substitute values into root `r`."""
@@ -161,3 +118,49 @@ class Stringer(MutableMapping[str, Self | str]):
     def __ior__(self, other: Self | Mapping[str, Any]) -> Self:
         self.update(other)  # type: ignore
         return self
+
+
+PatternChecks: TypeAlias = MutableMapping[str, Callable[[Pattern[str]], Any]]
+
+NO_CHECKS = {}
+
+
+@dataclass
+class StringerChecker:
+    chk: CheckDict
+    stringer: Stringer = field(default_factory=Stringer)
+    checks: PatternChecks = field(default_factory=dict)
+
+    def __call__(self, stringer: Stringer, also: PatternChecks = NO_CHECKS) -> Stringer:
+        """Run checks and return the `Stringer` that passed them.
+
+        Args:
+            stringer: Stringer to substitute, compile, and check.
+            also: Checks to assign if existing checks pass.
+        """
+        pattern = remap(stringer)
+        disp_name("pattern", pattern.pattern)
+        if all(
+            self.check(name, pattern)
+            for name in chain.from_iterable([self.checks, also])
+        ):
+            self.stringer = stringer
+        return self.stringer
+
+    def check(self, name: str, pattern: Pattern[str]) -> bool:
+        result = None
+        with suppress(Exception):
+            result = self.checks[name](pattern)
+        if result is None:
+            warn(f'Checkpoint "{name}" failed.', stacklevel=2)
+            return False
+        if expected := self.chk.get(name):
+            try:
+                assert result == expected  # noqa: S101
+            except AssertionError:
+                display(Markdown(f'### "{make_readable(name)}" check failed'))
+                disp_name("Expected", self.chk[name])
+                disp_name("Your answer", result)
+                raise
+        self.chk[name] = result
+        return True

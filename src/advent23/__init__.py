@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Callable, Collection, MutableMapping
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
-from re import MULTILINE, Pattern, compile
+from re import MULTILINE, compile
 from tomllib import loads
-from typing import Any, TypeAlias
+from typing import Any
 from warnings import warn
 
 from IPython.core.display import Markdown
@@ -58,12 +58,6 @@ def get_inp(day: int | str, user: str = "", part: str = "") -> CheckDict:
         example_inputs
         | ({part: full_input} if part else {part: full_input for part in PARTS})
     )
-
-
-PatternCheck: TypeAlias = Callable[[Pattern[str]], Any]
-PatternChecks: TypeAlias = MutableMapping[str, PatternCheck]
-
-NO_CHECKS = {}
 
 
 class CheckDict(UserDict[str, Any]):
