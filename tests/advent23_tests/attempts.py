@@ -77,17 +77,12 @@ class Attempt:
         src = CHECKS.sub(repl=CHECKS_REPL, string=src)
         checks: list[str] = []
         for check, node in zip(possible_checks, extract_node(src), strict=True):  # type: ignore
-            inferred_values = None
             try:
-                inferred_values = list(node.value.infer())
-            except InferenceError as exc:
-                if "StopIteration" in exc.message:
-                    checks.append(check)
-                    continue
-            if (
-                inferred_values is None
-                or any(i is Uninferable for i in inferred_values)
-            ):
+                inferences = list(node.value.infer())
+            except InferenceError:
+                checks.append(check)
+                continue
+            if any(inference is Uninferable for inference in inferences):
                 checks.append(check)
         if self.other:
             return [c for c in checks if c in self.other.checks]
