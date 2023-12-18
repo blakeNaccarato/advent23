@@ -17,42 +17,43 @@ from IPython.display import display
 from advent23 import CheckDict, disp_name, make_readable
 
 
-def g(N: str, P: str = r".+", **kwds) -> dict[str, Stringer]:  # noqa: N803
+def group(name: str, pat: str = r".+", **kwds) -> dict[str, GroupStringer]:
     """Named capturing group for unpacking into a Stringer.
 
     Args:
-        N: Name of the capturing group.
-        P: Pattern to match.
+        name: Name of the capturing group.
+        pat: Pattern to match.
         kwds: Other keyword arguments for `Stringer`.
     """
-    return {N: Stringer(r"(?P<$N>$P)", N=N, P=P, **kwds)}
+    return {name: GroupStringer(name, pat, **kwds)}
 
 
-class Stringer(MutableMapping[str, Self | str]):
-    def __init__(
-        self,
-        root: Self | str | Mapping[str, Self | str] = "",
-        **kwds: Self | str | Mapping[str, Self | str],
-    ):
+class Stringer(MutableMapping[str, Self]):
+    def __init__(self, root="", **kwds):
         """Recursive string substitution template."""
         super().__init__()
         self._ns = SimpleNamespace()
         for k, v in ({"root": root} | kwds).items():
-            self[k] = v if isinstance(v, type(self) | str) else Stringer(**v)  # type: ignore
+            self[k] = (
+                v if isinstance(v, type(self) | str) else type(self)(**v).set_flags
+            )
         self._flags = NOFLAG
 
-    def pat(self, quiet: bool = False, flags: RegexFlag = NOFLAG) -> Pattern[str]:
+    def compile(self, quiet: bool = False, flags: RegexFlag = NOFLAG) -> Pattern[str]:  # noqa: A003
         """Substitute values into root `r` and get compiled regex pattern."""
         return compile(self.sub(quiet), flags=self._flags | flags)
 
     def set_flags(self, flags: RegexFlag) -> Self:
         """Set regex flags for pattern compilation."""
         self._flags = flags
+        for k, v in self.items():
+            if isinstance(v, type(self)):
+                self[k].set_flags(flags)
         return self
 
     def sub(self, quiet: bool = False, final: bool = True) -> str:
         """Substitute values into root `r`."""
-        node: str = self.root  # type: ignore
+        node: str = self.root
         while node != (
             node := self.get_tsub(node, quiet)(
                 {
@@ -75,20 +76,20 @@ class Stringer(MutableMapping[str, Self | str]):
         args = ", ".join([f"{k}={v!r}" for k, v in self.items()])
         return fill(f"{Stringer.__name__}({args})", width=88, subsequent_indent=" " * 4)
 
-    def __setattr__(self, name: str, value: Self | str):
-        if name in {"_ns", "_flags"}:
+    def __setattr__(self, name: str, value):
+        if "_" in name:
             return super().__setattr__(name, value)
         self._ns.__setattr__(name, value)
 
-    def __getattr__(self, name: str) -> Self | str:
+    def __getattr__(self, name: str):
         if name == "_ns":
             return super().__getattr__(name)  # type: ignore
         return self._ns.__getattribute__(name)
 
-    def __setitem__(self, key: str, value: Self | str):
+    def __setitem__(self, key: str, value):
         self._ns.__setattr__(key, value)
 
-    def __getitem__(self, name: str) -> Self | str:  # type: ignore
+    def __getitem__(self, name: str):
         return self._ns.__getattribute__(name)
 
     def __delitem__(self, name: str):
@@ -109,8 +110,14 @@ class Stringer(MutableMapping[str, Self | str]):
         return deepcopy(self).__ior__(other)
 
     def __ior__(self, other: Self | Mapping[str, Any]) -> Self:
-        self.update(other)  # type: ignore
+        self.update(other)
         return self
+
+
+class GroupStringer(Stringer):
+    def __init__(self, name: str = "group", pat: str = r".+", **kwds):
+        """Stringer with a named capturing group."""
+        super().__init__(r"(?P<$name>$pat)", name=name, pat=pat, **kwds)
 
 
 StringerCheck = Callable[[Stringer], Any]
@@ -139,7 +146,8 @@ class StringerChecker:
             kwds: Checks to add if existing checks pass.
         """
         if disp:
-            disp_name("pattern", stringer.pat())
+            disp_name("stringer", stringer)
+            disp_name("pattern", stringer.compile())
         for name in [n for n in self.checks if n not in kwds]:
             self.check(stringer, name, self.checks[name], update=False)
         for name in [n for n in kwds if n not in self.checks]:

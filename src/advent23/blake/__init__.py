@@ -2,7 +2,7 @@
 
 from re import MULTILINE
 
-from advent23.stringers import Stringer, g
+from advent23.stringers import GroupStringer
 
-LINE_STRINGER = Stringer(r"^$line$$", **g("line")).set_flags(MULTILINE)
+LINE_STRINGER = GroupStringer("line").set_flags(MULTILINE)
 """Custom stringer with a `line` root group matching anything on a line."""
