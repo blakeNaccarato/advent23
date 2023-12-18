@@ -7,7 +7,7 @@ from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, field
 from itertools import chain
-from re import MULTILINE, VERBOSE, Pattern, compile
+from re import MULTILINE, NOFLAG, VERBOSE, Pattern, RegexFlag, compile
 from string import Template
 from textwrap import fill
 from types import SimpleNamespace
@@ -42,24 +42,37 @@ def g(N: str, P: str = r".+", **kwds) -> dict[str, Stringer]:  # noqa: N803
         P: Pattern to match.
         kwds: Other keyword arguments for `Stringer`.
     """
-    return {N: Stringer(r=r"(?P<$N>$P)", N=N, P=P, **kwds)}
+    return {N: Stringer(r"(?P<$N>$P)", N=N, P=P, **kwds)}
 
 
 class Stringer(MutableMapping[str, Self | str]):
-    def __init__(self, **kwds: Self | str | Mapping[str, Self | str]):
+    def __init__(
+        self,
+        root: Self | str | Mapping[str, Self | str] | None = None,
+        **kwds: Self | str | Mapping[str, Self | str],
+    ):
         """Recursive string substitution template."""
         super().__init__()
-        if not kwds:
-            kwds["r"] = ""
-        if "r" not in kwds:
-            raise ValueError("Stringer missing root key `r`.")
+        kwds = {"root": root} | kwds if root is not None else kwds
+        if "root" not in kwds:
+            raise ValueError("Stringer missing root key `root`.")
         self._ns = SimpleNamespace()
         for k, v in kwds.items():
             self[k] = v if isinstance(v, type(self) | str) else Stringer(**v)  # type: ignore
+        self._flags = NOFLAG
+
+    def pat(self, quiet: bool = False, flags: RegexFlag = NOFLAG) -> Pattern[str]:
+        """Substitute values into root `r` and get compiled regex pattern."""
+        return compile(self.sub(quiet), flags=self._flags | flags)
+
+    def set_flags(self, flags: RegexFlag) -> Self:
+        """Set regex flags for pattern compilation."""
+        self._flags = flags
+        return self
 
     def sub(self, quiet: bool = False, final: bool = True) -> str:
         """Substitute values into root `r`."""
-        node: str = self.r  # type: ignore
+        node: str = self.root  # type: ignore
         while node != (
             node := self.get_tsub(node, quiet)(
                 {
@@ -83,7 +96,7 @@ class Stringer(MutableMapping[str, Self | str]):
         return fill(f"{Stringer.__name__}({args})", width=88, subsequent_indent=" " * 4)
 
     def __setattr__(self, name: str, value: Self | str):
-        if name == "_ns":
+        if name in {"_ns", "_flags"}:
             return super().__setattr__(name, value)
         self._ns.__setattr__(name, value)
 
@@ -99,7 +112,7 @@ class Stringer(MutableMapping[str, Self | str]):
         return self._ns.__getattribute__(name)
 
     def __delitem__(self, name: str):
-        if name == "r":
+        if name == "root":
             raise KeyError("Cannot delete root.")
         self._ns.__delattr__(name)
 
