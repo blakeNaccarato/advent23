@@ -103,6 +103,7 @@ first_gear = [467, 35]
 first_gear_ratio = 16345
 second_gear = [755, 598]
 second_gear_ratio = 451490
+sum_of_all_gear_ratios = 467835
 [example.inp]
 a = '''
 467..114..
