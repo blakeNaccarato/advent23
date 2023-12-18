@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-from itertools import chain
 from re import NOFLAG, Pattern, RegexFlag, compile
 from string import Template
 from textwrap import fill
@@ -141,23 +140,28 @@ class StringerChecker:
         """
         if disp:
             disp_name("pattern", stringer.pat())
-        if all(
-            self.check(stringer, name, check)
-            for name, check in chain.from_iterable([self.checks.items(), kwds.items()])
-        ):
-            return stringer
-        else:
-            raise ValueError("Some checks failed.")
+        for name in [n for n in self.checks if n not in kwds]:
+            self.check(stringer, name, self.checks[name], update=False)
+        for name in [n for n in kwds if n not in self.checks]:
+            self.check(stringer, name, kwds[name], update=True)
+        self.stringer = stringer
+        return self.stringer
 
-    def check(self, stringer: Stringer, name: str, check: StringerCheck) -> bool:
-        result = check(stringer)
-        if expected := self.chk.get(name):
-            try:
-                assert result == expected  # noqa: S101
-            except AssertionError:
-                display(Markdown(f'### "{make_readable(name)}" check failed'))
-                disp_name("Expected", self.chk[name])
-                disp_name("Your answer", result)
-                raise
-        self.chk[name] = result
-        return True
+    def check(
+        self, stringer: Stringer, name: str, check: StringerCheck, update: bool = True
+    ):
+        try:
+            result = check(stringer)
+        except Exception:
+            display(Markdown(f'### "{make_readable(name)}" check raised exception'))
+            raise
+        if update:
+            if expected := self.chk.get(name):
+                try:
+                    assert result == expected  # noqa: S101
+                except AssertionError:
+                    display(Markdown(f'### "{make_readable(name)}" check failed'))
+                    disp_name("Expected", self.chk[name])
+                    disp_name("Your answer", result)
+                    raise
+            self.chk[name] = result
