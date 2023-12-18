@@ -8,7 +8,7 @@ from pathlib import Path
 from re import MULTILINE, compile
 from typing import Self
 
-from astroid import Assign, Uninferable, extract_node
+from astroid import Assign, AssignName, Const, List, Uninferable, extract_node
 from astroid.exceptions import InferenceError
 from boilercore.notebooks.namespaces import get_nb_ns
 from nbformat import NO_CONVERT, reads
@@ -122,6 +122,12 @@ CHECKS = compile(pattern=r'(?P<line>^chk\["(?P<check>[\w_]+)"\].+$)', flags=MULT
 Group matches by line and checkpoint name.
 """
 
+CHECK_ALSO = compile(pattern=r"(?P<line>^CHECK_ALSO.+$)", flags=MULTILINE)
+"""Find notebook-level assignments to `CHECK_ALSO`.
+
+Group matches by line.
+"""
+
 CHECKS_REPL = r"\g<line>  #@"
 """Annotate checks for node extraction with `astroid`."""
 
@@ -134,6 +140,8 @@ def get_attempted_checks(nb: str) -> list[str]:
     tends to identify non-trivial right-hand-sides, excluding checks assigned to
     hardcoded constants as in starter template notebooks.
 
+    Also add checks assigned as `CHECK_ALSO`.
+
     Returns:
         List of attempted checkpoints.
 
@@ -145,15 +153,33 @@ def get_attempted_checks(nb: str) -> list[str]:
         for c in reads(nb, NO_CONVERT).cells  # type: ignore  # pyright: 1.1.377
         if c.cell_type == "code"
     )
-    checks = [match["check"] for match in CHECKS.finditer(src)]
-    src = CHECKS.sub(repl=CHECKS_REPL, string=src)
+    # Finc `chk` mapping assignments and `CHECK_ALSO` overrides
+    checks = (match["check"] for match in CHECKS.finditer(src))
+    # Append `#@` annotations to tell `astroid` which nodes to extract
+    for pattern in (CHECKS, CHECK_ALSO):
+        src = pattern.sub(repl=CHECKS_REPL, string=src)
     # `extract_node` unpacks singletons, so wrap in list for consistency
     nodes = nodes if isinstance((nodes := extract_node(src)), list) else [nodes]
     attempted_checks: list[str] = []
-    for check, node in zip(checks, nodes, strict=True):
+    for node in nodes:
         # Extracted nodes should all be assignments, but guard against it anwyays
         if not isinstance(node, Assign):
             continue
+        # Handle `CHECK_ALSO` assignments
+        if (
+            isinstance(target := (node.targets[0]), AssignName)
+            and target.name == "CHECK_ALSO"
+        ):
+            rhs = node.value
+            if isinstance(rhs := node.value, List):
+                attempted_checks.extend(
+                    [elt.value for elt in rhs.elts if isinstance(elt, Const)]
+                )
+            elif isinstance(rhs, Const):
+                attempted_checks.append(rhs.value)
+            continue
+        # Handle `chk` assignments
+        check = next(checks)
         # The check is likely an organic attempt if inference fails...
         try:
             inferences = list(node.value.infer())

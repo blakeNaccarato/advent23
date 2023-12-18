@@ -3,35 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
-from contextlib import suppress
 from copy import deepcopy
 from dataclasses import dataclass, field
 from itertools import chain
-from re import MULTILINE, NOFLAG, VERBOSE, Pattern, RegexFlag, compile
+from re import NOFLAG, Pattern, RegexFlag, compile
 from string import Template
 from textwrap import fill
 from types import SimpleNamespace
 from typing import Any, Self, TypeAlias
-from warnings import warn
 
 from IPython.core.display import Markdown
 from IPython.display import display
 
 from advent23 import CheckDict, disp_name, make_readable
-
-
-def remap(
-    stringer: Stringer | None = None,
-    /,
-    **kwds: Stringer | str | Mapping[str, Stringer | str],
-) -> Pattern[str]:
-    """Multiline, verbose regex pattern compile from a `Stringer` mapping."""
-    return rem((stringer or Stringer(**kwds)).sub())
-
-
-def rem(pattern: str) -> Pattern[str]:
-    """Multiline, verbose, compiled regex pattern."""
-    return compile(flags=VERBOSE | MULTILINE, pattern=pattern)
 
 
 def g(N: str, P: str = r".+", **kwds) -> dict[str, Stringer]:  # noqa: N803
@@ -48,16 +32,13 @@ def g(N: str, P: str = r".+", **kwds) -> dict[str, Stringer]:  # noqa: N803
 class Stringer(MutableMapping[str, Self | str]):
     def __init__(
         self,
-        root: Self | str | Mapping[str, Self | str] | None = None,
+        root: Self | str | Mapping[str, Self | str] = "",
         **kwds: Self | str | Mapping[str, Self | str],
     ):
         """Recursive string substitution template."""
         super().__init__()
-        kwds = {"root": root} | kwds if root is not None else kwds
-        if "root" not in kwds:
-            raise ValueError("Stringer missing root key `root`.")
         self._ns = SimpleNamespace()
-        for k, v in kwds.items():
+        for k, v in ({"root": root} | kwds).items():
             self[k] = v if isinstance(v, type(self) | str) else Stringer(**v)  # type: ignore
         self._flags = NOFLAG
 
@@ -133,8 +114,8 @@ class Stringer(MutableMapping[str, Self | str]):
         return self
 
 
-PatternCheck = Callable[[Pattern[str]], Any]
-PatternChecks: TypeAlias = MutableMapping[str, PatternCheck]
+StringerCheck = Callable[[Stringer], Any]
+StringerChecks: TypeAlias = MutableMapping[str, StringerCheck]
 
 NO_CHECKS = {}
 
@@ -142,32 +123,34 @@ NO_CHECKS = {}
 @dataclass
 class StringerChecker:
     chk: CheckDict
-    stringer: Stringer = field(default_factory=Stringer)
-    checks: PatternChecks = field(default_factory=dict)
+    stringer: Stringer
+    checks: StringerChecks = field(default_factory=dict)
 
-    def __call__(self, stringer: Stringer, also: PatternChecks = NO_CHECKS) -> Stringer:
+    def __post_init__(self):
+        self(self.stringer, disp=False, **self.checks)
+
+    def __call__(
+        self, stringer: Stringer, disp: bool = True, **kwds: StringerCheck
+    ) -> Stringer:
         """Run checks and return the `Stringer` that passed them.
 
         Args:
             stringer: Stringer to substitute, compile, and check.
-            also: Checks to assign if existing checks pass.
+            disp: Whether to display the compiled pattern.
+            kwds: Checks to add if existing checks pass.
         """
-        pattern = remap(stringer)
-        disp_name("pattern", pattern.pattern)
+        if disp:
+            disp_name("pattern", stringer.pat())
         if all(
-            self.check(pattern, name, check)
-            for name, check in chain.from_iterable([self.checks.items(), also.items()])
+            self.check(stringer, name, check)
+            for name, check in chain.from_iterable([self.checks.items(), kwds.items()])
         ):
-            self.stringer = stringer
-        return self.stringer
+            return stringer
+        else:
+            raise ValueError("Some checks failed.")
 
-    def check(self, pattern: Pattern[str], name: str, check: PatternCheck) -> bool:
-        result = None
-        with suppress(Exception):
-            result = check(pattern)
-        if result is None:
-            warn(f'Checkpoint "{name}" failed.', stacklevel=2)
-            return False
+    def check(self, stringer: Stringer, name: str, check: StringerCheck) -> bool:
+        result = check(stringer)
         if expected := self.chk.get(name):
             try:
                 assert result == expected  # noqa: S101

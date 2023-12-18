@@ -28,13 +28,6 @@ zoneight234
 [[example]]
 day = 2
 [example.chk]
-all_games = [
-    "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green",
-    "Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue",
-    "Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red",
-    "Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red",
-    "Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green",
-]
 first_game = "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
 game_1_sets = "3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
 game_1_num = '1'
@@ -121,7 +114,14 @@ a = '''
 [[example]]
 day = 4
 [example.chk]
-a = 3
+first_line = "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53"
+card_one_winning_numbers = [41, 48, 83, 86, 17]
+card_one_drawn_numbers = [83, 86, 6, 31, 17, 9, 48, 53]
+card_one_wins = [83, 86, 17, 48]
+card_one_points = 8
+cards_winning_numbers = [[48, 83, 17, 86], [32, 61], [1, 21], [84], [], []]
+card_scores = [8, 2, 2, 1, 0, 0]
+a = 13
 [example.inp]
 a = '''
 Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
