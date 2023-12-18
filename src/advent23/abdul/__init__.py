@@ -29,7 +29,7 @@ def color_outcome(color: str, data_input):
 
         color_outcome_all_games.append(temp_set)
 
-    print(color_outcome_all_games)
+    print(color_outcome_all_games)  # noqa: T201
     return color_outcome_all_games
 
 
@@ -44,5 +44,12 @@ def compare_color_set(color_set: set, color: str):
     return color_set
 
 
-def get_min_possible(color_set: set, color: str):
+# Ruff thinks we don't need the `color` argument below, we must've changed this function
+# to not use that argument after we wrote it. We could remove the argument outright, or
+# we could add a leading underscore to the argument name to indicate that it's not used.
+# Since you are using this throughout your notebook, I can see why you left the argument
+# in, but a refactor would probably correct that throughout.
+
+
+def get_min_possible(color_set: set, color: str):  # noqa: ARG001
     return max(color_set)
