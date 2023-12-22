@@ -172,9 +172,9 @@ def get_attempted_checks(nb: str) -> list[str]:
         ):
             rhs = node.value
             if isinstance(rhs := node.value, List):
-                attempted_checks.extend(
-                    [elt.value for elt in rhs.elts if isinstance(elt, Const)]
-                )
+                attempted_checks.extend([
+                    elt.value for elt in rhs.elts if isinstance(elt, Const)
+                ])
             elif isinstance(rhs, Const):
                 attempted_checks.append(rhs.value)
             continue

@@ -55,14 +55,12 @@ class Stringer(MutableMapping[str, Self]):
         """Substitute values into root `r`."""
         node: str = self.root
         while node != (
-            node := self.get_tsub(node, quiet)(
-                {
-                    name: child.sub(quiet, final=False)
-                    if isinstance(child, Stringer)
-                    else child
-                    for name, child in self.items()
-                }
-            )
+            node := self.get_tsub(node, quiet)({
+                name: child.sub(quiet, final=False)
+                if isinstance(child, Stringer)
+                else child
+                for name, child in self.items()
+            })
         ):
             pass
         return node.replace("$$", "$") if final else node
