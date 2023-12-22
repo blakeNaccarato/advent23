@@ -112,7 +112,9 @@
   "vsicons.presets.hideExplorerArrows": true,
   "vsicons.dontShowNewVersionMessage": false,
 
-  //! Built-in
+  //! Other
+  //* Allow git no verify escape hatch
+  "git.allowNoVerifyCommit": true,
   //* Markdown editor moves jarringly when this is "true"
   "markdown.preview.scrollEditorWithPreview": false,
 
