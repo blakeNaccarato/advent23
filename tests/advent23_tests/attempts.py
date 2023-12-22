@@ -189,4 +189,8 @@ def get_attempted_checks(nb: str) -> list[str]:
         # ...or if any returned value is considered uniferable
         if any(inf is Uninferable for inf in inferences):
             attempted_checks.append(check)
+            continue
+        # ...or if any composite value (e.g. a dict) is considered uniferable
+        if any(inf.bool_value() is Uninferable for inf in inferences):
+            attempted_checks.append(check)
     return attempted_checks

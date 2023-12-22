@@ -122,6 +122,12 @@ card_one_points = 8
 cards_winning_numbers = [[83, 86, 17, 48], [61, 32], [21, 1], [84], [], []]
 card_scores = [8, 2, 2, 1, 0, 0]
 a = 13
+counts_after_card_one = { 1 = 1, 2 = 2, 3 = 2, 4 = 2, 5 = 2, 6 = 1 }
+counts_after_card_two = { 1 = 1, 2 = 2, 3 = 4, 4 = 4, 5 = 2, 6 = 1 }
+counts_after_card_three = { 1 = 1, 2 = 2, 3 = 4, 4 = 8, 5 = 6, 6 = 1 }
+counts_after_card_four = { 1 = 1, 2 = 2, 3 = 4, 4 = 8, 5 = 14, 6 = 1 }
+counts_after_card_five = { 1 = 1, 2 = 2, 3 = 4, 4 = 8, 5 = 14, 6 = 1 }
+counts_after_card_six = { 1 = 1, 2 = 2, 3 = 4, 4 = 8, 5 = 14, 6 = 1 }
 b = 30
 [example.inp]
 a = '''
