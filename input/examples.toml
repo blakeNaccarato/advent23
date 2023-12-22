@@ -119,7 +119,7 @@ card_one_winning_numbers = [41, 48, 83, 86, 17]
 card_one_drawn_numbers = [83, 86, 6, 31, 17, 9, 48, 53]
 card_one_wins = [83, 86, 17, 48]
 card_one_points = 8
-cards_winning_numbers = [[48, 83, 17, 86], [32, 61], [1, 21], [84], [], []]
+cards_winning_numbers = [[83, 86, 17, 48], [61, 32], [21, 1], [84], [], []]
 card_scores = [8, 2, 2, 1, 0, 0]
 a = 13
 [example.inp]
