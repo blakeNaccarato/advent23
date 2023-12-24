@@ -9,7 +9,7 @@ from re import NOFLAG, Pattern, RegexFlag, compile
 from string import Template
 from textwrap import fill
 from types import SimpleNamespace
-from typing import Any, Self, TypeAlias
+from typing import Any, Self
 
 from IPython.core.display import Markdown
 from IPython.display import display
@@ -34,9 +34,7 @@ class Stringer(MutableMapping[str, Self]):
         super().__init__()
         self._ns = SimpleNamespace()
         for k, v in ({"root": root} | kwds).items():
-            self[k] = (
-                v if isinstance(v, type(self) | str) else type(self)(**v).set_flags
-            )
+            self[k] = v if isinstance(v, type(self) | str) else type(self)(**v)
         self._flags = NOFLAG
 
     def compile(self, quiet: bool = False, flags: RegexFlag = NOFLAG) -> Pattern[str]:  # noqa: A003
@@ -119,23 +117,15 @@ class GroupStringer(Stringer):
 
 
 StringerCheck = Callable[[Stringer], Any]
-StringerChecks: TypeAlias = MutableMapping[str, StringerCheck]
-
-NO_CHECKS = {}
 
 
 @dataclass
 class StringerChecker:
     chk: CheckDict
-    stringer: Stringer
-    checks: StringerChecks = field(default_factory=dict)
+    stringer: Stringer = field(default_factory=Stringer)
+    checks: dict[str, StringerCheck] = field(default_factory=dict)
 
-    def __post_init__(self):
-        self(self.stringer, disp=False, **self.checks)
-
-    def __call__(
-        self, stringer: Stringer, disp: bool = True, **kwds: StringerCheck
-    ) -> Stringer:
+    def __call__(self, stringer: Stringer, **kwds: StringerCheck) -> Stringer:
         """Run checks and return the `Stringer` that passed them.
 
         Args:
@@ -143,13 +133,13 @@ class StringerChecker:
             disp: Whether to display the compiled pattern.
             kwds: Checks to add if existing checks pass.
         """
-        if disp:
-            disp_name("stringer", stringer)
-            disp_name("pattern", stringer.compile())
+        disp_name("stringer", stringer)
+        disp_name("pattern", stringer.compile())
         for name in [n for n in self.checks if n not in kwds]:
             self.check(stringer, name, self.checks[name], update=False)
         for name in [n for n in kwds if n not in self.checks]:
             self.check(stringer, name, kwds[name], update=True)
+        self.checks |= kwds
         self.stringer = stringer
         return self.stringer
 
