@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-from re import NOFLAG, Pattern, RegexFlag, compile
+from re import NOFLAG, Match, Pattern, RegexFlag, compile
 from string import Template
 from textwrap import fill
 from types import SimpleNamespace
@@ -16,20 +16,14 @@ from IPython.display import display
 
 from advent23 import CheckDict, disp_name, make_readable
 
-
-def group(name: str, pat: str = r".+", **kwds) -> dict[str, GroupStringer]:
-    """Named capturing group for unpacking into a Stringer.
-
-    Args:
-        name: Name of the capturing group.
-        pat: Pattern to match.
-        kwds: Other keyword arguments for `Stringer`.
-    """
-    return {name: GroupStringer(name, pat, **kwds)}
+ANY = r"(?:.|\n)"
+"""Any character, including newlines."""
+PAT = rf"{ANY}+"
+"""Any non-zero-length string."""
 
 
 class Stringer(MutableMapping[str, Self]):
-    def __init__(self, root="", **kwds):
+    def __init__(self, root=PAT, **kwds):
         """Recursive string substitution template."""
         super().__init__()
         self._ns = SimpleNamespace()
@@ -51,7 +45,8 @@ class Stringer(MutableMapping[str, Self]):
 
     def sub(self, quiet: bool = False, final: bool = True) -> str:
         """Substitute values into root `r`."""
-        node: str = self.root
+        root = self.root
+        node: str = root.sub(quiet) if isinstance(root, type(self)) else root
         while node != (
             node := self.get_tsub(node, quiet)({
                 name: child.sub(quiet, final=False)
@@ -110,10 +105,32 @@ class Stringer(MutableMapping[str, Self]):
         return self
 
 
+def group(
+    pat: Stringer | str = PAT, name: str = "", **kwds
+) -> dict[str, GroupStringer]:
+    """Named substitution with named capturing group for unpacking into a Stringer.
+
+    Args:
+        pat: Pattern to match.
+        name: Name for this substitution and the named capturing-group.
+        kwds: Other substitutions.
+    """
+    return {name: GroupStringer(pat, name, **kwds)}
+
+
 class GroupStringer(Stringer):
-    def __init__(self, name: str = "group", pat: str = r".+", **kwds):
-        """Stringer with a named capturing group."""
-        super().__init__(r"(?P<$name>$pat)", name=name, pat=pat, **kwds)
+    def __init__(self, pat: Stringer | str = PAT, name: str = "", **kwds):
+        """Stringer with a non-capturing group or a named capturing group.
+
+        Args:
+            pat: Pattern to match.
+            name: If given, name for the named capturing-group.
+            kwds: Other substitutions.
+        """
+        if name:
+            super().__init__(r"(?P<$name>$pat)", pat=pat, name=name, **kwds)
+        else:
+            super().__init__(r"(?:$pat)", pat=pat, **kwds)
 
 
 StringerCheck = Callable[[Stringer], Any]
@@ -137,7 +154,7 @@ class StringerChecker:
         disp_name("pattern", stringer.compile())
         for name in [n for n in self.checks if n not in kwds]:
             self.check(stringer, name, self.checks[name], update=False)
-        for name in [n for n in kwds if n not in self.checks]:
+        for name in kwds:
             self.check(stringer, name, kwds[name], update=True)
         self.checks |= kwds
         self.stringer = stringer
@@ -152,12 +169,25 @@ class StringerChecker:
             display(Markdown(f'### "{make_readable(name)}" check raised exception'))
             raise
         if update:
-            if expected := self.chk.get(name):
-                try:
-                    assert result == expected  # noqa: S101
-                except AssertionError:
-                    display(Markdown(f'### "{make_readable(name)}" check failed'))
-                    disp_name("Expected", self.chk[name])
-                    disp_name("Your answer", result)
-                    raise
             self.chk[name] = result
+            return
+        if expected := self.chk.get(name):
+            try:
+                if isinstance(result, Match) and isinstance(expected, Match):
+                    assert check_match(result, expected)  # noqa: S101
+                else:
+                    assert result == expected  # noqa: S101
+            except AssertionError:
+                display(Markdown(f'### "{make_readable(name)}" check failed'))
+                disp_name("Expected", self.chk[name])
+                disp_name("Your answer", result)
+                raise
+        self.chk[name] = result
+
+
+def check_match(match: Match[str], other: Match[str]) -> bool:
+    return (
+        match.group() == other.group()
+        and match.groups() == other.groups()
+        and match.groupdict() == other.groupdict()
+    )
