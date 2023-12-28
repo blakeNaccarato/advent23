@@ -28,9 +28,6 @@ zoneight234
 [[example]]
 day = 2
 [example.chk]
-first_game = "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
-game_1_sets = "3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green"
-game_1_num = '1'
 bag = [12, 13, 14]
 possible = [1, 2, 5]
 a = 8
@@ -114,7 +111,6 @@ a = '''
 [[example]]
 day = 4
 [example.chk]
-first_line = "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53"
 card_one_winning_numbers = [41, 48, 83, 86, 17]
 card_one_drawn_numbers = [83, 86, 6, 31, 17, 9, 48, 53]
 card_one_wins = [83, 86, 17, 48]
@@ -142,8 +138,8 @@ Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
 [[example]]
 day = 5
 [example.chk]
+seeds = [79, 14, 55, 13]
 a = 35
-seeds = '79 14 55 13'
 [example.inp]
 a = '''
 seeds: 79 14 55 13

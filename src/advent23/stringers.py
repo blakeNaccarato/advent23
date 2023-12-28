@@ -18,16 +18,14 @@ from advent23 import CheckDict, disp_name, make_readable
 
 ANY = r"(?:.|\n)"
 """Any character, including newlines."""
-PAT = rf"{ANY}+"
-"""Any non-zero-length string."""
 
 
 class Stringer(MutableMapping[str, Self]):
-    def __init__(self, root=PAT, **kwds):
+    def __init__(self, root=r"$any+", **kwds):
         """Recursive string substitution template."""
         super().__init__()
         self._ns = SimpleNamespace()
-        for k, v in ({"root": root} | kwds).items():
+        for k, v in (dict(root=root, any=ANY) | kwds).items():
             self[k] = v if isinstance(v, type(self) | str) else type(self)(**v)
         self._flags = NOFLAG
 
@@ -105,21 +103,8 @@ class Stringer(MutableMapping[str, Self]):
         return self
 
 
-def group(
-    pat: Stringer | str = PAT, name: str = "", **kwds
-) -> dict[str, GroupStringer]:
-    """Named substitution with named capturing group for unpacking into a Stringer.
-
-    Args:
-        pat: Pattern to match.
-        name: Name for this substitution and the named capturing-group.
-        kwds: Other substitutions.
-    """
-    return {name: GroupStringer(pat, name, **kwds)}
-
-
 class GroupStringer(Stringer):
-    def __init__(self, pat: Stringer | str = PAT, name: str = "", **kwds):
+    def __init__(self, pat: Stringer | str = r"$any", name: str = "", **kwds):
         """Stringer with a non-capturing group or a named capturing group.
 
         Args:
@@ -131,6 +116,19 @@ class GroupStringer(Stringer):
             super().__init__(r"(?P<$name>$pat)", pat=pat, name=name, **kwds)
         else:
             super().__init__(r"(?:$pat)", pat=pat, **kwds)
+
+
+def group(
+    pat: Stringer | str = r"$any", name: str = "", **kwds
+) -> dict[str, GroupStringer]:
+    """Named substitution with named capturing group for unpacking into a Stringer.
+
+    Args:
+        pat: Pattern to match.
+        name: Name for this substitution and the named capturing-group.
+        kwds: Other substitutions.
+    """
+    return {name: GroupStringer(pat, name, **kwds)}
 
 
 StringerCheck = Callable[[Stringer], Any]
