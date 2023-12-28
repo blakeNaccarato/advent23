@@ -180,7 +180,6 @@ class StringerChecker:
                 disp_name("Expected", self.chk[name])
                 disp_name("Your answer", result)
                 raise
-        self.chk[name] = result
 
 
 def check_match(match: Match[str], other: Match[str]) -> bool:
