@@ -5,7 +5,7 @@ ipykernel==6.27.1
 # Debug
 debugpy==1.8.0
 # Format
-ruff==0.1.9
+ruff==0.1.11
 sourcery-cli==1.14.0
 # Profiling
 snakeviz==2.2.0
